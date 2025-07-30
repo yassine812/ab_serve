@@ -1,0 +1,147 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Modifier l'utilisateur</h1>
+        <a href="{% url 'Gamme:user_list' %}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+            <i class="bi bi-arrow-left me-1"></i> Retour à la liste
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Informations de l'utilisateur</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="id_username" class="form-label">Nom d'utilisateur</label>
+                        <input type="text" class="form-control" id="id_username" name="username" 
+                               value="{{ form.username.value|default:'' }}" required>
+                       
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_email" class="form-label">Adresse email</label>
+                        <input type="email" class="form-control" id="id_email" name="email" 
+                               value="{{ form.email.value|default:'' }}" required>
+                     
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="id_first_name" class="form-label">Prénom</label>
+                        <input type="text" class="form-control" id="id_first_name" name="first_name" 
+                               value="{{ form.first_name.value|default:'' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_last_name" class="form-label">Nom</label>
+                        <input type="text" class="form-control" id="id_last_name" name="last_name" 
+                               value="{{ form.last_name.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="form-label">Rôle</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="role" id="role_op" 
+                                   value="op" {% if selected_role == 'op' %}checked{% endif %} required>
+                            <label class="form-check-label" for="role_op">
+                                Opérateur
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="role" id="role_rs" 
+                                   value="rs" {% if selected_role == 'rs' %}checked{% endif %}>
+                            <label class="form-check-label" for="role_rs">
+                                Responsable
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="role" id="role_ro" 
+                                   value="ro" {% if selected_role == 'ro' %}checked{% endif %}>
+                            <label class="form-check-label" for="role_ro">
+                                Responsable operation
+                            </label>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{% url 'Gamme:user_list' %}" class="btn btn-secondary me-md-2">
+                        <i class="bi bi-x-circle me-1"></i> Annuler
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i> Enregistrer les modifications
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Form validation - only validate on submit if fields are filled
+    (function() {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function(form) {
+            form.addEventListener('submit', function(event) {
+                // Only validate required fields that have a value
+                var requiredFields = form.querySelectorAll('[required]');
+                var isValid = true;
+                
+                requiredFields.forEach(function(field) {
+                    if (field.value.trim() === '') {
+                        field.classList.add('is-invalid');
+                        field.nextElementSibling.style.display = 'block';
+                        isValid = false;
+                    } else {
+                        field.classList.remove('is-invalid');
+                        field.classList.add('is-valid');
+                        if (field.nextElementSibling) {
+                            field.nextElementSibling.style.display = 'none';
+                        }
+                    }
+                });
+                
+                if (!isValid) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                
+                form.classList.add('was-validated');
+            }, false);
+            
+            // Remove validation on input
+            var inputs = form.querySelectorAll('input');
+            inputs.forEach(function(input) {
+                input.addEventListener('input', function() {
+                    if (this.hasAttribute('required') && this.value.trim() === '') {
+                        this.classList.remove('is-valid');
+                        this.classList.add('is-invalid');
+                        if (this.nextElementSibling) {
+                            this.nextElementSibling.style.display = 'block';
+                        }
+                    } else if (this.value.trim() !== '') {
+                        this.classList.remove('is-invalid');
+                        this.classList.add('is-valid');
+                        if (this.nextElementSibling) {
+                            this.nextElementSibling.style.display = 'none';
+                        }
+                    }
+                });
+            });
+        });
+    })();
+</script>
+{% endblock %}

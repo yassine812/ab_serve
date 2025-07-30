@@ -1,0 +1,75 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gamme Controle | Connexion</title>
+    <link rel="stylesheet" href="{% static 'gamme/dist/css/adminlte.min.css' %}">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic">
+    <link rel="stylesheet" href="{% static 'gamme/dist/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'gamme/dist/css/icheck-bootstrap.min.css' %}">
+</head>
+<body class="hold-transition login-page">
+<div class="login-box">
+  <!-- /.login-logo -->
+  <div class="card card-outline card-primary">
+    <div class="card-header text-center">
+      <h1 class="h2"><b>Gamme</b>Contrôle</h1>
+      <p class="mb-0">Système de gestion des gammes</p>
+    </div>
+    <div class="card-body">
+      <p class="login-box-msg">Connectez-vous pour commencer</p>
+
+      <form action="{% url 'Gamme:login' %}" method="post">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+        
+        <div class="mb-3">
+          <input type="text" class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
+                 placeholder="nom d'utilisateur" name="username" 
+                 value="{{ form.username.value|default:'' }}">
+          {% if form.username.errors %}
+            <div class="invalid-feedback d-block">
+              {{ form.username.errors.0 }}
+            </div>
+          {% endif %}
+        </div>
+        
+        <div class="mb-3">
+          <input type="password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" 
+                 placeholder="Mot de passe" name="password">
+          {% if form.password.errors %}
+            <div class="invalid-feedback d-block">
+              {{ form.password.errors.0 }}
+            </div>
+          {% endif %}
+        </div>
+        <div class="row">
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="text-center mt-4">
+        <p class="mb-2">Nouvel utilisateur ?</p>
+        <a href="{% url 'Gamme:register' %}" class="btn btn-outline-primary btn-block">
+          <i class="fas fa-user-plus mr-2"></i>Créer un compte
+        </a>
+      </div>
+    </div>
+    <!-- /.card-body -->
+  </div>
+  <!-- /.card -->
+</div>
+<script src="{% static 'gamme/dist/js/jquery.min.js' %}"></script>
+<script src="{% static 'gamme/dist/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'gamme/dist/js/adminlte.min.js' %}"></script>
+</body>
+</html>

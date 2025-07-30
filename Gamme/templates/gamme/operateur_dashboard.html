@@ -1,0 +1,99 @@
+{% extends 'gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Content Wrapper. Contains page content -->
+<div class="content-wrapper" style="margin-left: 0 !important;">
+  <!-- Content Header (Page header) -->
+  <div class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1 class="m-0">Tableau de bord Opérateur</h1>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <section class="content">
+    <div class="container-fluid">
+      <!-- Small boxes (Stat box) -->
+      <div class="row">
+        <div class="col-lg-3 col-6">
+        
+        </div>
+        <!-- ./col -->
+        <div class="col-lg-3 col-6">
+        
+        </div>
+        <!-- ./col -->
+      </div>
+      <!-- /.row -->
+
+      <!-- Main row -->
+      <div class="row">
+        <!-- Left col -->
+        <section class="col-lg-12">
+          <!-- Custom tabs (Charts with tabs)-->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">
+                <i class="bi bi-list-task me-1"></i>
+                Mes Missions
+              </h3>
+            </div><!-- /.card-header -->
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Description</th>
+                      <th>Statut</th>
+
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for mission in missions %}
+                    <tr>
+                      <td><a href="{% url 'Gamme:op_edit' pk=mission.pk %}">{{ mission.description|truncatechars:50 }}</a></td>
+                      <td>
+                        {% if mission.statut %}
+                          <span class="badge bg-success">Active</span>
+                        {% else %}
+                          <span class="badge bg-danger">Inactive</span>
+                        {% endif %}
+                      </td>
+                      
+                    </tr>
+                    {% empty %}
+                    <tr>
+                      <td colspan="6" class="text-center">Aucune mission assignée</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div><!-- /.card-body -->
+          </div>
+          <!-- /.card -->
+        </section>
+        <!-- /.Left col -->
+      </div>
+      <!-- /.row (main row) -->
+    </div><!-- /.container-fluid -->
+  </section>
+  <!-- /.content -->
+</div>
+<!-- /.content-wrapper -->
+
+<!-- Hide the sidebar for operator view -->
+<style>
+  .sidebar {
+    display: none !important;
+  }
+  .content-wrapper {
+    margin-left: 0 !important;
+  }
+</style>
+{% endblock %}

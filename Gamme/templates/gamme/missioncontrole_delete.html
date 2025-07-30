@@ -1,0 +1,18 @@
+{% extends 'Gamme/admin_base.html' %}
+{% block content %}
+<div class="card card-info card-outline mb-4">
+    <div class="card-header">
+        <div class="card-title">Supprimer la Mission</div>
+    </div>
+    <form method="post" class="needs-validation" novalidate>
+        {% csrf_token %}
+        <div class="card-body">
+            <p>Êtes-vous sûr de vouloir supprimer la mission "{{ mission.intitule }}" ?</p>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-danger">Supprimer</button>
+            <a href="{% url 'Gamme:missioncontrole_list' %}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

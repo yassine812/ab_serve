@@ -1,0 +1,386 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<ul class="nav nav-tabs" id="custom-tabs-four-tab" role="tablist">
+  <li class="nav-item">
+    <a class="nav-link active" id="custom-tabs-four-home-tab" data-bs-toggle="pill" href="#custom-tabs-four-home" role="tab">Mission</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="custom-tabs-four-profile-tab" data-bs-toggle="pill" href="#custom-tabs-four-profile" role="tab">Gamme</a>
+  </li>
+</ul>
+
+<div class="tab-content" id="custom-tabs-four-tabContent">
+  <!-- MISSION TAB -->
+  <div class="tab-pane fade show active" id="custom-tabs-four-home" role="tabpanel">
+    <div class="card card-info card-outline mb-4">
+      <div class="card-header"><div class="card-title">Créer une nouvelle Mission</div></div>
+      <form method="POST" action="{% url 'Gamme:dashboard' %}" class="needs-validation" novalidate enctype="multipart/form-data" id="mission-form" onsubmit="handleMissionSubmit(event)">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="mission">
+        {{ operation_formset.management_form }}
+
+        <div class="card-body">
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label">Code</label>
+              <input type="text" name="code" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Intitulé</label>
+              <input type="text" name="intitule" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Description</label>
+              <textarea name="description" class="form-control" required></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Produit Référence</label>
+              <input type="text" name="produitref" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Statut</label>
+              <select name="statut" class="form-select" required>
+                <option value="True">Actif</option>
+                <option value="False">Inactif</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="collapse mb-3" id="newGammeForm">
+            <div class="card card-light">
+              <div class="card-body">
+                <h5>Nouvelle Gamme</h5>
+                <div class="mb-3">
+                  <label class="form-label">Intitulé</label>
+                  <input type="text" name="gamme_intitule" class="form-control">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">No Incident</label>
+                  <input type="text" name="gamme_No_incident" class="form-control">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Statut</label>
+                  <select name="gamme_statut" class="form-select">
+                    <option value="True" selected>Actif</option>
+                    <option value="False">Inactif</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div id="operation-forms-container"></div>
+            <div class="d-grid mt-2">
+              <button type="button" class="btn btn-outline-primary" id="add-operation-btn">
+                <i class="bi bi-plus-circle"></i> Ajouter une opération
+              </button>
+            </div>
+          </div>
+        </div>
+
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- GAMME TAB -->
+  <div class="tab-pane fade" id="custom-tabs-four-profile" role="tabpanel">
+    <div class="card card-info card-outline mb-4">
+      <div class="card-header"><div class="card-title">Créer une Gamme de Contrôle</div></div>
+      <form method="POST" action="{% url 'Gamme:dashboard' %}" enctype="multipart/form-data" class="needs-validation" novalidate id="gamme-form">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="gamme">
+        <input type="hidden" name="is_mission_creation" id="is-mission-creation" value="false">
+        {{ operation_formset.management_form }}
+
+        <div class="card-body">
+          <div class="row g-3" id="mission-selection-row">
+            <div class="col-md-6">
+              <label class="form-label">Mission</label>
+              <select class="form-select" name="mission" id="gamme-mission-select" required>
+                <option value="">Sélectionner une mission</option>
+                {% for mission in missions %}
+                  <option value="{{ mission.id }}">{{ mission.intitule }} ({{ mission.code }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Intitulé</label>
+              <input type="text" name="intitule" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">No Incident</label>
+              <input type="text" name="No_incident" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Statut</label>
+              <select class="form-select" name="statut" required>
+                <option value="True">Actif</option>
+                <option value="False">Inactif</option>
+              </select>
+            </div>
+          </div>
+
+          <hr>
+          <button type="button" id="add-operation-btn-gamme" class="btn btn-success mb-3">
+            <i class="bi bi-plus-circle"></i> Ajouter une opération
+          </button>
+
+          <div id="operation-forms-container-gamme"></div>
+        </div>
+
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <a href="{% url 'Gamme:missioncontrole_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Annuler
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- TEMPLATES -->
+<template id="operation-form-template">
+  <div class="card card-secondary mb-3 operation-form-item">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>Nouvelle Opération</span>
+      <button type="button" class="btn-close btn-sm remove-operation-btn"></button>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">Titre</label>
+        <input type="text" name="operation_formset-__prefix__-titre" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea name="operation_formset-__prefix__-description" class="form-control" required></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Critères</label>
+        <textarea name="operation_formset-__prefix__-criteres" class="form-control" required></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Ordre</label>
+        <input type="number" name="operation_formset-__prefix__-ordre" class="form-control" value="0" required>
+      </div>
+      <div class="photo-fields-container mt-3"></div>
+      <button type="button" class="btn btn-sm btn-outline-primary add-photo-btn mt-2">
+        <i class="bi bi-plus-circle"></i> Ajouter une photo
+      </button>
+    </div>
+  </div>
+</template>
+
+<template id="photo-input-template">
+  <div class="photo-input mb-3 border rounded p-2 bg-light position-relative">
+    <div class="mb-2">
+      <label class="form-label">Image</label>
+      <input type="file" name="operation_formset-OP_INDEX-photo_image" class="form-control photo-file" accept="image/*" required>
+    </div>
+    <div>
+      <label class="form-label">Description</label>
+      <input type="text" name="operation_formset-OP_INDEX-photo_description" class="form-control photo-description" placeholder="Description de la photo" required>
+    </div>
+    <button type="button" class="btn-close position-absolute top-0 end-0 p-2 remove-photo-btn" aria-label="Close"></button>
+  </div>
+</template>
+
+<!-- JS for dynamic forms -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const operationFormsetPrefix = "operation_formset";
+    
+    // Handle tab switching to manage mission creation mode
+    const missionTab = document.querySelector('#custom-tabs-four-home-tab');
+    const gammeTab = document.querySelector('#custom-tabs-four-profile-tab');
+    const isMissionCreationInput = document.getElementById('is-mission-creation');
+    const missionSelectionRow = document.getElementById('mission-selection-row');
+    const gammeMissionSelect = document.getElementById('gamme-mission-select');
+    
+    // Set initial state based on active tab
+    updateFormState(missionTab.classList.contains('active'));
+    
+    // Add event listeners for tab changes
+    missionTab.addEventListener('shown.bs.tab', function() {
+        updateFormState(true);
+    });
+    
+    gammeTab.addEventListener('shown.bs.tab', function() {
+        updateFormState(false);
+    });
+    
+    function updateFormState(isMissionTabActive) {
+        if (isMissionTabActive) {
+            // Mission tab is active, we're in mission creation mode
+            isMissionCreationInput.value = 'true';
+            if (missionSelectionRow) missionSelectionRow.style.display = 'none';
+            if (gammeMissionSelect) gammeMissionSelect.required = false;
+        } else {
+            // Gamme tab is active, we're in standalone gamme creation mode
+            isMissionCreationInput.value = 'false';
+            if (missionSelectionRow) missionSelectionRow.style.display = 'flex';
+            if (gammeMissionSelect) gammeMissionSelect.required = true;
+        }
+    }
+
+    function setupDynamicForms(addBtnId, containerId) {
+        const addBtn = document.getElementById(addBtnId);
+        const container = document.getElementById(containerId);
+        const form = addBtn.closest('form');
+        const totalFormsInput = form.querySelector(`input[name='${operationFormsetPrefix}-TOTAL_FORMS']`);
+        
+        let formIndex = parseInt(totalFormsInput.value) || 0;
+
+        addBtn.addEventListener('click', function () {
+            const operationIndex = formIndex; // Capture the current index
+
+            const operationTemplate = document.getElementById("operation-form-template").innerHTML;
+            const newFormHtml = operationTemplate.replace(/__prefix__/g, operationIndex);
+            
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = newFormHtml;
+            const newForm = wrapper.firstElementChild;
+            
+            container.appendChild(newForm);
+            
+            // Add photo button event listener
+            newForm.querySelector('.add-photo-btn').addEventListener('click', function() {
+                addPhotoInput(newForm, operationIndex); // Use the captured index
+            });
+
+            // Remove operation button event listener
+            newForm.querySelector('.remove-operation-btn').addEventListener('click', function() {
+                newForm.remove();
+                // Note: We don't decrement TOTAL_FORMS to avoid complexity with non-sequential forms.
+                // Django's formset handles gaps gracefully.
+            });
+
+            formIndex++;
+            totalFormsInput.value = formIndex;
+        });
+    }
+
+    function addPhotoInput(operationDiv, opIndex) {
+        const photoContainer = operationDiv.querySelector('.photo-fields-container');
+        const photoTemplate = document.getElementById("photo-input-template").innerHTML;
+        
+        // Find all existing photo inputs in this operation to get the next index
+        const existingPhotos = operationDiv.querySelectorAll('.photo-input');
+        const photoIndex = existingPhotos.length;
+        
+        if (photoIndex >= 5) {
+            alert("Vous ne pouvez ajouter que 5 photos par opération.");
+            return;
+        }
+
+        // Replace placeholders with actual indices
+        const newPhotoHtml = photoTemplate
+            .replace(/OP_INDEX/g, opIndex)
+            .replace(/PHOTO_INDEX/g, photoIndex);
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = newPhotoHtml;
+        const newPhotoForm = wrapper.firstElementChild;
+
+        // Set unique names for the file input and description
+        const fileInput = newPhotoForm.querySelector('.photo-file');
+        const descInput = newPhotoForm.querySelector('.photo-description');
+        
+        if (fileInput) {
+            fileInput.name = `operation_formset-${opIndex}-photo_image`;
+        }
+        if (descInput) {
+            descInput.name = `operation_formset-${opIndex}-photo_description`;
+        }
+
+        photoContainer.appendChild(newPhotoForm);
+
+        // Add remove listener for the new photo
+        newPhotoForm.querySelector('.remove-photo-btn').addEventListener('click', function() {
+            newPhotoForm.remove();
+        });
+    }
+
+    // Initialize for both forms
+    setupDynamicForms("add-operation-btn", "operation-forms-container");
+    setupDynamicForms("add-operation-btn-gamme", "operation-forms-container-gamme");
+    
+    // Set the mission select value when a new mission is created
+    const missionForm = document.getElementById('mission-form');
+    if (missionForm) {
+        missionForm.addEventListener('submit', function() {
+            const missionCode = this.querySelector('input[name="code"]').value;
+            const missionIntitule = this.querySelector('input[name="intitule"]').value;
+            
+            // Store the new mission data to select it in the gamme form
+            sessionStorage.setItem('newMissionData', JSON.stringify({
+                code: missionCode,
+                intitule: missionIntitule
+            }));
+        });
+    }
+
+    // Form submission visual feedback
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enregistrement...';
+            }
+        });
+    });
+    
+    // Handle mission form submission
+    function handleMissionSubmit(event) {
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        // Submit the form via AJAX to handle both mission and gamme creation
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // If gamme was also created, redirect to mission list
+                if (data.gamme_created) {
+                    window.location.href = '{% url "Gamme:missioncontrole_list" %}';
+                } else {
+                    // Just refresh the page to show the new mission in the gamme form
+                    window.location.reload();
+                }
+            } else {
+                // Show error message
+                alert('Une erreur est survenue: ' + (data.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Une erreur est survenue lors de la soumission du formulaire');
+        });
+        
+        event.preventDefault();
+    }
+});
+</script>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{% endblock %}

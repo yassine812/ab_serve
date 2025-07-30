@@ -1,0 +1,65 @@
+/* Base Styles */
+body {
+    background-color: #444;
+    padding: 0 10px;
+    margin: 0;
+    min-width: fit-content;
+}
+
+/* Layout */
+.page-container {
+    margin: 10px auto;
+    width: fit-content;
+}
+
+.page {
+    overflow: hidden;
+    position: relative;
+    background-color: white;
+}
+
+/* Annotations */
+.annotations-container {
+    position: absolute;
+    pointer-events: none;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+}
+
+.annotations-container > div {
+    position: absolute;
+    pointer-events: auto;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.annotations-container > div:hover {
+    background-color: rgba(255, 255, 0, 0.25);
+    cursor: pointer;
+}
+
+/* Text Styling */
+.text-container {
+    white-space: pre;
+}
+
+.t {
+    transform-origin: bottom left;
+    z-index: 2;
+    position: absolute;
+    white-space: pre;
+    overflow: visible;
+    line-height: 1.5;
+}
+
+/* Vendor Prefixes */
+@supports (-webkit-touch-callout: none) {
+    .text-container {
+        white-space: normal;
+    }
+}

@@ -1,0 +1,22 @@
+{% extends 'gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-center">
+                            <h3 class="mb-4">Déconnexion réussie</h3>
+                            <p class="lead">Vous avez été déconnecté avec succès.</p>
+                            <a href="{% url 'Gamme:login' %}" class="btn btn-primary">Se connecter</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

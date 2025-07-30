@@ -1,0 +1,251 @@
+{% extends 'Gamme/admin_base.html' %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom">
+                    <h4 class="mb-0">Ajouter un utilisateur</h4>
+                </div>
+                <div class="card-body">
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Erreur !</strong> Veuillez corriger les erreurs ci-dessous.
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <h5 class="mb-3">Informations de connexion</h5>
+                            
+                            <!-- Nom d'utilisateur -->
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold" for="username">
+                                    Nom d'utilisateur <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       name="username" 
+                                       class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
+                                       id="username" 
+                                       value="{{ form.username.value|default:'' }}" 
+                                       required
+                                       minlength="3"
+                                       maxlength="150">
+                                <div class="invalid-feedback">
+                                    
+                                </div>
+                            </div>
+                            
+                            <!-- Email -->
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold" for="email">
+                                    Adresse email <span class="text-danger">*</span>
+                                </label>
+                                <input type="email" 
+                                       name="email" 
+                                       class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
+                                       id="email" 
+                                       value="{{ form.email.value|default:'' }}" 
+                                       required>
+                                <div class="invalid-feedback">
+                                    
+                                </div>
+                            </div>
+                            
+                            <!-- Prénom -->
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold" for="first_name">Prénom</label>
+                                <input type="text" 
+                                       name="first_name" 
+                                       class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" 
+                                       id="first_name"
+                                       value="{{ form.first_name.value|default:'' }}"
+                                       maxlength="30">
+                                {% if form.first_name.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.first_name.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Nom -->
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold" for="last_name">Nom</label>
+                                <input type="text" 
+                                       name="last_name" 
+                                       class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" 
+                                       id="last_name"
+                                       value="{{ form.last_name.value|default:'' }}"
+                                       maxlength="150">
+                                {% if form.last_name.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.last_name.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Mot de passe -->
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold" for="password1">
+                                    Mot de passe <span class="text-danger">*</span>
+                                </label>
+                                <input type="password" 
+                                       name="password1" 
+                                       class="form-control {% if form.password1.errors %}is-invalid{% endif %}" 
+                                       id="password1" 
+                                       required
+                                       minlength="8"
+                                       pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$">
+                                <small class="form-text text-muted">
+                                    Le mot de passe doit contenir au moins 8 caractères, dont des lettres et des chiffres.
+                                </small>
+                                {% if form.password1.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.password1.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Confirmation mot de passe -->
+                            <div class="form-group mb-4">
+                                <label class="form-label fw-bold" for="password2">
+                                    Confirmation du mot de passe <span class="text-danger">*</span>
+                                </label>
+                                <input type="password" 
+                                       name="password2" 
+                                       class="form-control {% if form.password2.errors %}is-invalid{% endif %}" 
+                                       id="password2" 
+                                       required>
+                                {% if form.password2.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.password2.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <h5 class="mt-4 mb-3">Rôle</h5>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="form-check mb-3">
+                                        <input type="radio" 
+                                               class="form-check-input {% if form.role.errors %}is-invalid{% endif %}" 
+                                               id="role_op" 
+                                               name="role" 
+                                               value="op"
+                                               {% if form.role.value == 'op' %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold" for="role_op">
+                                            Opérateur
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-check mb-3">
+                                        <input type="radio" 
+                                               class="form-check-input {% if form.role.errors %}is-invalid{% endif %}" 
+                                               id="role_rs" 
+                                               name="role" 
+                                               value="rs"
+                                               {% if form.role.value == 'rs' %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold" for="role_rs">
+                                            Responsable
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-check mb-3">
+                                        <input type="radio" 
+                                               class="form-check-input {% if form.role.errors %}is-invalid{% endif %}" 
+                                               id="role_ro" 
+                                               name="role" 
+                                               value="ro"
+                                               {% if form.role.value == 'ro' %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold" for="role_ro">
+                                            RO
+                                        </label>
+                                        {% if form.role.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ form.role.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-end mt-4">
+                            <a href="{% url 'Gamme:user_list' %}" class="btn btn-outline-secondary me-2">Annuler</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-1"></i> Ajouter l'utilisateur
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Enable form validation
+(function () {
+    'use strict'
+    
+    // Fetch all the forms we want to apply custom Bootstrap validation styles to
+    var forms = document.querySelectorAll('.needs-validation')
+    
+    // Password confirmation validation
+    var password1 = document.getElementById('password1');
+    var password2 = document.getElementById('password2');
+    
+    function validatePassword() {
+        if (password1.value !== password2.value) {
+            password2.setCustomValidity("Les mots de passe ne correspondent pas");
+        } else {
+            password2.setCustomValidity('');
+        }
+    }
+    
+    password1.onchange = validatePassword;
+    password2.onkeyup = validatePassword;
+    
+    // Loop over forms and prevent submission
+    Array.prototype.slice.call(forms)
+        .forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                // Re-validate password confirmation
+                if (password1 && password2) {
+                    validatePassword();
+                }
+                
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                
+                form.classList.add('was-validated');
+            }, false);
+        });
+})();
+
+// Show/hide password functionality
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = document.querySelector(`[onclick="togglePassword('${inputId}')"]`);
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+}
+</script>
+{% endblock %}

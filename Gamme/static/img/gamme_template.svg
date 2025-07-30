@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1286 909" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="c0"><path d="M751.3 785.1V728.9h61.8v56.2Z"/></clipPath>
+    <clipPath id="c1"><path d="M903.2 784.8V726.7h61.9v58.1Z"/></clipPath>
+    <clipPath id="c2"><path d="M679.9 785.5V728.3h62.9v57.2Z"/></clipPath>
+    <clipPath id="c3"><path d="M826.8 784.4V725.3h62.9v59.1Z"/></clipPath>
+    <clipPath id="c4"><path d="M40 861.8V27H1221.7V861.8Z"/></clipPath>
+    <clipPath id="c5"><path d="M1080.6 575.2V545.8h34.2v29.4Z"/></clipPath>
+    <clipPath id="c6"><path d="M713.9 84.4v-42h45.5v42Z"/></clipPath>
+    <clipPath id="c7"><path d="M794.4 54.8V32.1h50.7V54.8Z"/></clipPath>
+    <clipPath id="c8"><path d="M794.4 93.2v-23h50.7v23Z"/></clipPath>
+    <clipPath id="c9"><path d="M858.8 55.8V34.2h50.7V55.8Z"/></clipPath>
+    <clipPath id="ca"><path d="M857.8 94.1V71.2h50.7V94.1Z"/></clipPath>
+    <clipPath id="cb"><path d="M40.6 97.2V25.5H105V97.2Z"/></clipPath>
+    <clipPath id="cc"><path d="M1035.5 51.2V28.4h79.7V51.2Z"/></clipPath>
+    <clipPath id="cd"><path d="M1119.7 52V29.3h80.8V52Z"/></clipPath>
+    <clipPath id="ce"><path d="M38.5 861.6V25.5h1183V861.6Z"/></clipPath>
+    <clipPath id="cf"><path d="M1076.9 658.8V627.2h31.3v31.6Z"/></clipPath>
+    <clipPath id="cg"><path d="M1077 614.3V589.5h33.5v24.8Z"/></clipPath>
+    <clipPath id="ch"><path d="M1077.3 699.2V667.6h31v31.6Z"/></clipPath>
+  </defs>
+  <!-- Rest of the SVG content would go here -->
+</svg>

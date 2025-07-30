@@ -1,0 +1,146 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+{% block content %}
+
+<div class="card card-info card-outline mb-4">
+  <div class="card-header">
+    <div class="card-title">Créer une mission</div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+    {% csrf_token %}
+    <div class="card-body">
+
+      <!-- Champs mission -->
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Code</label>
+          <input type="text" name="code" class="form-control" value="{{ mission_form.code.value|default_if_none:'' }}" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Intitulé</label>
+          <input type="text" name="intitule" class="form-control" value="{{ mission_form.intitule.value|default_if_none:'' }}" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Référence Produit</label>
+          <input type="text" name="produitref" class="form-control" value="{{ mission_form.produitref.value|default_if_none:'' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Statut</label>
+          <select name="statut" class="form-select">
+            <option value="True" {% if mission_form.statut.value == 'True' %}selected{% endif %}>Actif</option>
+            <option value="False" {% if mission_form.statut.value == 'False' %}selected{% endif %}>Inactif</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="form-control">{{ mission_form.description.value|default_if_none:'' }}</textarea>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- Zone dynamique des gammes -->
+      <div id="gamme-container"></div>
+
+      {% if not object.gammecontrole %}
+      <button type="button" class="btn btn-outline-success mt-3" id="add-gamme-btn" onclick="addGamme()">➕ Ajouter une gamme</button>
+      {% endif %}
+    </div>
+
+    <div class="card-footer d-flex justify-content-end gap-2">
+      <a href="{% url 'Gamme:missioncontrole_list' %}" class="btn btn-secondary">Annuler</a>
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </form>
+</div>
+
+<script>
+let gammeIndex = 0;
+
+function addGamme() {
+  const gammeDiv = document.createElement('div');
+  gammeDiv.className = "border p-3 mt-4 rounded bg-light";
+  gammeDiv.innerHTML = `
+    <h5>Gamme #${gammeIndex + 1}</h5>
+    <div class="row">
+      <div class="col-md-6">
+        <label>Intitulé</label>
+        <input type="text" name="gamme_${gammeIndex}_intitule" class="form-control" required>
+      </div>
+      <div class="col-md-6">
+        <label>No Incident</label>
+        <input type="text" name="gamme_${gammeIndex}_no_incident" class="form-control">
+      </div>  
+      <div class="col-md-3">
+        <label>Statut</label>
+        <select name="gamme_${gammeIndex}_statut" class="form-select">
+          <option value="True">Actif</option>
+          <option value="False">Inactif</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="operation-container-${gammeIndex}" class="mt-3"></div>
+    <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addOperation(${gammeIndex})">➕ Ajouter une opération</button>
+  `;
+  document.getElementById('gamme-container').appendChild(gammeDiv);
+
+  const addBtn = document.getElementById("add-gamme-btn");
+  addBtn.disabled = true;
+  addBtn.classList.add("d-none");
+
+  gammeIndex++;
+}
+
+function addOperation(gammeId) {
+  const container = document.getElementById(`operation-container-${gammeId}`);
+  const operationIndex = container.childElementCount;
+
+  const operationDiv = document.createElement('div');
+  operationDiv.className = "border p-3 mt-3 rounded bg-white";
+  operationDiv.innerHTML = `
+    <h6>Opération #${operationIndex + 1}</h6>
+    <div class="row">
+      <div class="col-md-6">
+        <label>Titre</label>
+        <input type="text" name="operation_${gammeId}_${operationIndex}_titre" class="form-control" required>
+      </div>
+      <div class="col-md-3">
+        <label>Ordre</label>
+        <input type="number" name="operation_${gammeId}_${operationIndex}_ordre" class="form-control" value="0">
+      </div>
+      <div class="col-md-12 mt-2">
+        <label>Description</label>
+        <textarea name="operation_${gammeId}_${operationIndex}_description" class="form-control"></textarea>
+      </div>
+      <div class="col-md-12 mt-2">
+        <label>Critères</label>
+        <textarea name="operation_${gammeId}_${operationIndex}_criteres" class="form-control"></textarea>
+      </div>
+    </div>
+
+    <div id="photo-container-${gammeId}-${operationIndex}" class="mt-3"></div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addPhoto(${gammeId}, ${operationIndex})">🖼️ Ajouter une photo</button>
+  `;
+
+  container.appendChild(operationDiv);
+}
+
+function addPhoto(gammeId, operationId) {
+  const container = document.getElementById(`photo-container-${gammeId}-${operationId}`);
+  const photoIndex = container.childElementCount;
+
+  const photoDiv = document.createElement('div');
+  photoDiv.className = "card mt-2 p-2";
+  photoDiv.innerHTML = `
+    <label>Photo #${photoIndex + 1}</label>
+    <input type="file" name="photo_${gammeId}_${operationId}_${photoIndex}_image" class="form-control mb-2">
+    <textarea name="photo_${gammeId}_${operationId}_${photoIndex}_description" class="form-control" placeholder="Description de la photo"></textarea>
+  `;
+
+  container.appendChild(photoDiv);
+}
+</script>
+
+{% endblock %}

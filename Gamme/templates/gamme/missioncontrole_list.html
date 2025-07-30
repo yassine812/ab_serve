@@ -1,0 +1,535 @@
+{% extends 'Gamme/admin_base.html' %}
+{% block extra_head %}
+<style>
+    .btn-pdf {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-pdf .spinner-border {
+        display: none;
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.15em;
+    }
+    .btn-pdf.loading .spinner-border {
+        display: inline-block;
+    }
+    .btn-pdf.loading .bi-file-pdf {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <h3 class="card-title">{% if is_operator %}Mes missions{% else %}Liste des missions{% endif %}</h3>
+            </div>
+            {% if not is_operator %}
+            <div class="col-md-6">
+                <form method="get" class="row g-1">
+                    <div class="col-4">
+                        <select name="statut" class="form-select form-select-sm">
+                            <option value="">Tous les statuts</option>
+                            <option value="1" {% if current_statut == '1' %}selected{% endif %}>Actif</option>
+                            <option value="0" {% if current_statut == '0' %}selected{% endif %}>Inactif</option>
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <select name="produitref" class="form-select form-select-sm">
+                            <option value="">Tous les produits</option>
+                            {% for produit in produits %}
+                            <option value="{{ produit }}" {% if current_produitref == produit %}selected{% endif %}>
+                                {{ produit }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-search"></i> Rechercher
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% if not is_operator %}
+        <div class="card-tools">
+            <a href="{% url 'Gamme:missioncontrole_create' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> Nouvelle Mission
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover">
+            <thead class="bg-secondary text-white">
+                <tr>
+                    <th class="align-middle text-center">Code</th>
+                    <th class="align-middle">Intitulé</th>
+                    <th class="align-middle">Produit Réf.</th>
+                    <th class="align-middle">Description</th>
+                    <th class="align-middle text-center">Statut</th>
+                    <th class="align-middle text-center">Date Création</th>
+                    {% if not is_operator %}<th class="align-middle text-center">Actions</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for mission in object_list %}
+                <tr>
+                    <td class="align-middle text-center">{{ mission.code }}</td>
+                    <td class="align-middle">{{ mission.intitule }}</td>
+                    <td class="align-middle">{{ mission.produitref }}</td>
+                    <td class="align-middle">{{ mission.description|truncatewords:10 }}</td>
+                    <td class="align-middle text-center">
+                        {% if mission.statut %}
+                        <span class="badge bg-success">Actif</span>
+                        {% else %}
+                        <span class="badge bg-danger">Inactif</span>
+                        {% endif %}
+                    </td>
+                    <td class="align-middle text-center">{{ mission.date_creation|date:"d/m/Y H:i" }}</td>
+                    {% if not is_operator %}
+                    <td class="align-middle">
+                        <div class="d-flex justify-content-center gap-2">
+                            <div class="btn-group">
+                                {% if user.is_rs and mission.gammes.exists %}
+                              
+                                
+                               
+                                <button type="button" class="btn btn-outline-success btn-sm" 
+                                        onclick="savePDF('{{ mission.id }}', this)"
+                                        title="Enregistrer le PDF">
+                                    <i class="bi bi-file-pdf"></i>
+                                </button>{% endif %}
+                                <a href="{% url 'Gamme:missioncontrole_update' mission.id %}" class="btn btn-outline-warning btn-sm" 
+                                   title="Modifier">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        onclick="showDeleteConfirmation('{{ mission.id }}')"
+                                        title="Supprimer">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{% if is_operator %}6{% else %}7{% endif %}" class="text-center">Aucune mission trouvée</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card-footer clearfix">
+        <div class="float-right">
+            <small>{{ object_list.count }} mission{{ object_list.count|pluralize }} trouvée{{ object_list.count|pluralize:"s" }}</small>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize jsPDF
+    const { jsPDF } = window.jspdf;
+    
+    // Activer les tooltips Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Confirmation suppression
+    function showDeleteConfirmation(missionId) {
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal' + missionId));
+        modal.show();
+    }
+
+    // Function to generate and save PDF directly
+    async function savePDF(missionId, button) {
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Génération...';
+
+        const tempContainers = [];
+
+        try {
+            const pdfResponse = await fetch(`/gamme/pdf/${missionId}/`);
+            if (!pdfResponse.ok) throw new Error(`HTTP error! status: ${pdfResponse.status}`);
+            const html = await pdfResponse.text();
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4',
+            });
+
+            const mainContainer = document.createElement('div');
+            mainContainer.innerHTML = html;
+
+            const pdfContent = mainContainer.querySelector('.pdf-content') || mainContainer;
+            const pageBreakNode = pdfContent.querySelector('.page-break');
+            
+            const pageElements = [];
+
+            if (pageBreakNode) {
+                // Page 1: Content before the page break
+                const page1 = document.createElement('div');
+                let currentNode = pdfContent.firstChild;
+                while (currentNode && currentNode !== pageBreakNode) {
+                    page1.appendChild(currentNode.cloneNode(true));
+                    currentNode = currentNode.nextSibling;
+                }
+                pageElements.push(page1);
+
+                // Page 2: The page break element and everything after it
+                const page2 = document.createElement('div');
+                while (currentNode) {
+                    page2.appendChild(currentNode.cloneNode(true));
+                    currentNode = currentNode.nextSibling;
+                }
+                pageElements.push(page2);
+
+            } else {
+                // If no page break, treat the whole thing as one page
+                pageElements.push(pdfContent.cloneNode(true));
+            }
+
+            console.log(`Found ${pageElements.length} pages to render.`);
+
+            for (let i = 0; i < pageElements.length; i++) {
+                const pageElement = pageElements[i];
+                
+                const pageRenderContainer = document.createElement('div');
+                pageRenderContainer.style.position = 'absolute';
+                pageRenderContainer.style.left = '-9999px';
+                pageRenderContainer.style.width = '1200px';
+                pageRenderContainer.appendChild(pageElement);
+                document.body.appendChild(pageRenderContainer);
+                tempContainers.push(pageRenderContainer);
+
+                if (i > 0) {
+                    pdf.addPage('a4', 'landscape');
+                }
+
+                console.log(`Rendering page ${i + 1}...`);
+                const canvas = await html2canvas(pageRenderContainer, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: true,
+                    width: 1200,
+                    windowWidth: 1200,
+                    onclone: (clonedDoc) => {
+                        // Force table borders to be visible in the canvas render
+                        const style = clonedDoc.createElement('style');
+                        style.innerHTML = 'table, th, td { border: 1px solid black !important; }';
+                        clonedDoc.body.appendChild(style);
+                    }
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                const pdfPageWidth = pdf.internal.pageSize.getWidth();
+                const pdfPageHeight = pdf.internal.pageSize.getHeight();
+                
+                const imgProps = pdf.getImageProperties(imgData);
+                const ratio = imgProps.height / imgProps.width;
+                let imgHeight = pdfPageWidth * ratio;
+                let imgWidth = pdfPageWidth;
+
+                // Scale image to fit the page while maintaining aspect ratio
+                if (imgHeight > pdfPageHeight - 10) { // -10 for margin
+                    imgHeight = pdfPageHeight - 10;
+                    imgWidth = imgHeight / ratio;
+                }
+                
+                const x = (pdfPageWidth - imgWidth) / 2;
+                const y = 5; // 5mm top margin
+
+                pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
+            }
+
+            console.log('PDF generated, preparing for upload...');
+            const pdfBlob = pdf.output('blob');
+            const formData = new FormData();
+            formData.append('pdf_file', pdfBlob, `mission_${missionId}.pdf`);
+            
+            const csrftoken = getCookie('csrftoken');
+            if (!csrftoken) throw new Error('CSRF token not found');
+            
+            const response = await fetch(`/gamme/missioncontrole/${missionId}/save-pdf/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken, 'Accept': 'application/json' },
+                body: formData,
+                credentials: 'same-origin'
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || data.detail || `Server error: ${response.status}`);
+            }
+            
+            showAlert('success', 'PDF généré et enregistré avec succès!');
+            const viewBtn = document.getElementById(`view-pdf-${missionId}`);
+            if (viewBtn) {
+                viewBtn.href = data.pdf_url;
+                viewBtn.target = '_blank';
+                viewBtn.style.display = 'inline-block';
+            }
+
+        } catch (error) {
+            console.error('Error in savePDF:', error);
+            showAlert('danger', `Erreur lors de la génération du PDF: ${error.message}`);
+        } finally {
+            tempContainers.forEach(c => document.body.removeChild(c));
+            button.disabled = false;
+            button.innerHTML = originalContent;
+        }
+    }
+    
+    // Helper function to show alerts
+    function showAlert(type, message) {
+        // Remove any existing alerts
+        const existingAlerts = document.querySelectorAll('.alert');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        // Create and show new alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Add to the page (you might want to adjust the selector based on your layout)
+        const container = document.querySelector('.container') || document.body;
+        container.prepend(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            const bsAlert = new bootstrap.Alert(alertDiv);
+            bsAlert.close();
+        }, 5000);
+    }
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+{% for mission in object_list %}
+    <!-- Delete Modal -->
+    <div class="modal fade" id="deleteModal{{ mission.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ mission.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel{{ mission.id }}">Supprimer la Mission</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'Gamme:missioncontrole_delete' mission.id %}" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <p>Êtes-vous sûr de vouloir supprimer la mission "{{ mission.intitule }}" ?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-danger">Supprimer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<div class="modal fade" id="gammeModal{{ mission.id }}" tabindex="-1" aria-labelledby="gammeModalLabel{{ mission.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="gammeModalLabel{{ mission.id }}">
+                    Gammes associées à la mission : {{ mission.intitule }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Intitulé</th>
+                                <th>Version</th>
+                                <th>Statut</th>
+                                <th>Date de Création</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for gamme in mission.gammecontrole_set.all %}
+                            <tr>
+                                <td>{{ gamme.intitule }}</td>
+                                <td>{{ gamme.version }}</td>
+                                <td>
+                                    {% if gamme.statut %}
+                                    <span class="badge bg-success">Actif</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Inactif</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ gamme.date_creation|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Aucune gamme associée</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+// Wait for the DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click event listeners to all PDF buttons
+    document.querySelectorAll('.btn-pdf').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const missionId = this.getAttribute('data-mission-id');
+            generateAndSavePDF(missionId, this);
+        });
+    });
+});
+
+
+
+// Function to generate and save PDF
+async function generateAndSavePDF(missionId, button) {
+    // Show loading state
+    button.classList.add('loading');
+    button.disabled = true;
+    
+    try {
+        // Create a new window to load the PDF template
+        const printWindow = window.open('', '_blank');
+        
+        // Load the PDF content
+        const response = await fetch(`/gamme/missioncontrole/${missionId}/pdf-content/`);
+        if (!response.ok) throw new Error('Failed to load PDF content');
+        
+        const html = await response.text();
+        
+        // Write the HTML content to the new window
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        // Wait for the content to load
+        printWindow.onload = async function() {
+            try {
+                // Use html2canvas to capture the content
+                const canvas = await html2canvas(printWindow.document.body, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: true
+                });
+                
+                // Create PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/png');
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                // Add the image to the PDF
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                
+                // Save the PDF
+                pdf.save(`gamme-mission-${missionId}.pdf`);
+                
+                // Show success message
+                alert('PDF généré avec succès !');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                
+                // Show error message to user
+                const errorAlert = document.createElement('div');
+                errorAlert.className = 'alert alert-danger alert-dismissible fade show';
+                errorAlert.role = 'alert';
+                errorAlert.innerHTML = `
+                    <strong>Erreur!</strong> ${error.message || 'Une erreur est survenue lors de la génération du PDF.'}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                
+                // Insert the alert before the table
+                const table = document.querySelector('.table-responsive');
+                if (table) {
+                    table.parentNode.insertBefore(errorAlert, table);
+                } else {
+                    document.querySelector('.card-body').prepend(errorAlert);
+                }
+                
+                // Auto-hide the alert after 10 seconds
+                setTimeout(() => {
+                    try {
+                        const bsAlert = new bootstrap.Alert(errorAlert);
+                        bsAlert.close();
+                    } catch (e) {
+                        console.error('Error closing alert:', e);
+                    }
+                }, 10000);
+                
+                throw error; // Re-throw to be caught by the outer catch
+            } finally {
+                // Clean up
+                try {
+                    if (tempContainer && document.body.contains(tempContainer)) {
+                        document.body.removeChild(tempContainer);
+                    }
+                } catch (e) {
+                    console.error('Error cleaning up temp container:', e);
+                }
+                
+                // Reset button state
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-save"></i> Enregistrer PDF';
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Error loading PDF content:', error);
+        alert('Erreur lors du chargement du contenu PDF. Veuillez réessayer.');
+        button.classList.remove('loading');
+        button.disabled = false;
+    }
+}
+</script>
+{% endblock %}

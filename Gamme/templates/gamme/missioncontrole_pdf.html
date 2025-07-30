@@ -1,0 +1,922 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Gamme PDF - {{ mission.intitule }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        const { jsPDF } = window.jspdf;
+        
+        // Function to load a single image
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                
+                img.onload = () => resolve(img);
+                img.onerror = (e) => {
+                    console.warn('Failed to load image:', src, e);
+                    resolve(null);
+                };
+                
+                img.src = src;
+                
+                // If the image is already in cache, it might not trigger onload
+                if (img.complete) {
+                    resolve(img);
+                }
+            });
+        }
+        
+        // Function to ensure all images are loaded
+        async function loadAllImages() {
+            const images = document.querySelectorAll('img');
+            const promises = [];
+            
+            images.forEach(img => {
+                if (img.src && !img.src.startsWith('data:')) {
+                    promises.push(loadImage(img.src));
+                }
+            });
+            
+            return Promise.all(promises);
+        }
+        
+        // Function to convert image to base64
+        function imageToBase64(img) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            ctx.drawImage(img, 0, 0);
+            return canvas.toDataURL('image/png');
+        }
+        
+        // Function to ensure all images are loaded
+        function loadImages() {
+            const images = document.querySelectorAll('img');
+            const promises = [];
+            
+            images.forEach(img => {
+                if (img.complete && img.naturalWidth !== 0) {
+                    return; // Skip already loaded images
+                }
+                
+                const promise = new Promise((resolve) => {
+                    img.onload = () => {
+                        img.onload = null;
+                        img.onerror = null;
+                        resolve();
+                    };
+                    
+                    img.onerror = () => {
+                        console.warn('Failed to load image:', img.src);
+                        img.onload = null;
+                        img.onerror = null;
+                        img.style.display = 'none'; // Hide broken images
+                        resolve();
+                    };
+                    
+                    // Force reload the image
+                    const src = img.src;
+                    img.src = '';
+                    img.src = src;
+                });
+                
+                promises.push(promise);
+            });
+            
+            return Promise.all(promises);
+        }
+
+        // Function to preload images with better error handling
+        function preloadImages() {
+            const images = document.querySelectorAll('img');
+            const promises = [];
+            
+            images.forEach(img => {
+                // Skip if already loaded
+                if (img.complete) {
+                    if (img.naturalWidth === 0) {
+                        console.warn('Image appears to be broken:', img.src);
+                        // Try to force reload the image
+                        const src = img.src;
+                        img.src = '';
+                        img.src = src;
+                    } else {
+                        return; // Skip already loaded images
+                    }
+                }
+
+                const promise = new Promise((resolve) => {
+                    const onLoad = () => {
+                        img.removeEventListener('load', onLoad);
+                        img.removeEventListener('error', onError);
+                        resolve();
+                    };
+                    
+                    const onError = () => {
+                        console.warn('Failed to load image:', img.src);
+                        img.removeEventListener('load', onLoad);
+                        img.removeEventListener('error', onError);
+                        resolve(); // Resolve even if image fails to load
+                    };
+
+                    img.addEventListener('load', onLoad);
+                    img.addEventListener('error', onError);
+                });
+                
+                promises.push(promise);
+            });
+            
+            return Promise.all(promises);
+        }
+
+        // Function to ensure all images have absolute URLs
+        function ensureAbsoluteUrls(element) {
+            const baseUrl = window.location.origin;
+            element.querySelectorAll('img').forEach(img => {
+                const src = img.getAttribute('src');
+                if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                    // Convert relative URLs to absolute
+                    try {
+                        const url = new URL(src, baseUrl);
+                        img.src = url.href;
+                    } catch (e) {
+                        console.warn('Invalid image URL:', src);
+                    }
+                }
+            });
+        }
+
+        async function downloadPDF() {
+            try {
+                console.log("Starting PDF generation...");
+                
+                // Ensure all images are loaded before rendering
+                console.log("Loading all images...");
+                await preloadImages();
+                console.log("All images loaded.");
+
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'pt',
+                    format: 'a4',
+                });
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const margin = 20; // Margin from the edge of the PDF
+                const contentWidth = pdfWidth - 2 * margin;
+                const contentHeight = pdfHeight - 2 * margin;
+
+                const element = document.querySelector('.pdf-container');
+                element.style.display = 'block'; // Make sure it's visible for html2canvas
+
+                // Temporarily apply print styles for accurate rendering
+                element.classList.add('print-version');
+
+                const canvas = await html2canvas(element, {
+                    scale: 2, // Increase scale for better quality
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: true,
+                    imageTimeout: 15000, // 15 seconds timeout
+                    onclone: (clonedDoc) => {
+                        // Ensure all content is visible in the cloned document
+                        clonedDoc.body.style.overflow = 'visible';
+                        clonedDoc.body.style.height = 'auto';
+                        const clonedElement = clonedDoc.querySelector('.pdf-container');
+                        if (clonedElement) {
+                            clonedElement.style.display = 'block';
+                            clonedElement.style.position = 'static';
+                            clonedElement.style.width = 'auto';
+                            clonedElement.style.height = 'auto';
+                            clonedElement.style.overflow = 'visible';
+                        }
+                        // Ensure images have absolute URLs
+                        ensureAbsoluteUrls(clonedDoc);
+                    }
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 1.0); // Use JPEG for smaller file size, quality 1.0
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgWidth = imgProps.width;
+                const imgHeight = imgProps.height;
+
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentWidth * (imgHeight / imgWidth));
+                heightLeft -= contentHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', margin, position + margin, contentWidth, contentWidth * (imgHeight / imgWidth));
+                    heightLeft -= contentHeight;
+                }
+                
+                // Generate the PDF and force download
+                const pdfBlob = pdf.output('blob');
+                const blobUrl = URL.createObjectURL(pdfBlob);
+                
+                // Create and trigger download
+                const downloadLink = document.createElement('a');
+                downloadLink.href = blobUrl;
+                downloadLink.download = 'gamme-{{ mission.code }}.pdf';
+                downloadLink.target = '_blank';
+                downloadLink.rel = 'noopener noreferrer';
+                
+                // Trigger download
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                
+                // Cleanup
+                setTimeout(() => {
+                    document.body.removeChild(downloadLink);
+                    URL.revokeObjectURL(blobUrl);
+                    element.classList.remove('print-version'); // Remove print styles
+                    element.style.display = 'none'; // Hide the container again
+                    
+                    // Close the window after a short delay
+                    setTimeout(() => {
+                        window.close();
+                    }, 100);
+                }, 100);
+                
+                console.log("PDF download started.");
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Erreur lors de la génération du PDF. Veuillez réessayer. Détails dans la console.');
+            }
+        }
+    </script>
+    <style>
+        /* Base styles */
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10pt;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Table styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin: 0;
+            page-break-inside: avoid;
+        }
+        
+        td, th {
+            border: 1px solid #000;
+            padding: 2px 4px;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+        
+        th {
+            background-color: #e6f2ff;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        /* Specific column widths */
+        .first-col {
+            width: 60px;
+            min-width: 60px;
+            max-width: 60px;
+            text-align: center;
+        }
+        
+        .second-col {
+            width: 200px;
+            min-width: 200px;
+            max-width: 200px;
+        }
+        
+        .third-col {
+            width: 250px;
+            min-width: 250px;
+            max-width: 250px;
+        }
+        
+        .fourth-col {
+            width: 400px;
+            min-width: 400px;
+            max-width: 400px;
+        }
+        
+        /* Images */
+        img {
+            max-width: 100%;
+            max-height: 100px;
+            display: block;
+            margin: 2px 0;
+        }
+        
+        /* Page breaks */
+        .page-break {
+            page-break-before: always;
+        }
+        
+        /* Header and footer */
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 8pt;
+            margin-top: 10px;
+        }
+    </style>
+    <style>
+        /* Print-specific styles */
+        .print-version {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            background: white !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        
+        #pdf-content {
+            position: absolute !important;
+            left: -9999px !important;
+            top: 0 !important;
+            width: 1123px !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        
+        #pdf-content .pdf-container {
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+            position: static !important;
+        }
+        
+        .print-version .no-print {
+            display: none !important;
+        }
+        
+        .print-version img {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+        .print-version table {
+            page-break-inside: auto !important;
+        }
+        
+        .print-version tr {
+            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+        }
+        
+        .print-version thead {
+            display: table-header-group !important;
+        }
+        
+        .print-version tfoot {
+            display: table-footer-group !important;
+        }
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .pdf-container {
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin: 0 auto;
+            max-width: 1200px;
+            position: relative;
+        }
+        .pdf-toolbar {
+            background: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .pdf-content {
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(100vh - 100px);
+        }
+        .btn-pdf {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-pdf:hover {
+            background: #c82333;
+            color: white;
+            text-decoration: none;
+        }
+        @media print {
+            .pdf-toolbar {
+                display: none;
+            }
+            body {
+                padding: 0;
+                background: white;
+            }
+        }
+    </style>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+            margin: 0 auto;
+        }
+        .narrow-cell {
+            width: 1%;
+            white-space: nowrap;
+        }
+        td, th {
+            border: 1px solid #000;
+            padding: 2px 4px;
+            text-align: left;
+            vertical-align: middle;
+            line-height: 1;
+            word-wrap: break-word;
+        }
+        th {
+            background-color: #e6f2ff;
+        }
+        .first-col {
+            width: 30px;
+            min-width: 60px;
+            max-width: 60px;
+            text-align: center;
+        }
+        .second-col {
+            width: 300px;
+            min-width: 500px;
+            text-align: left;
+            padding-left: 10px;
+            font-size: 1em;
+            white-space: normal;
+            overflow: visible;
+            word-wrap: break-word;
+        }
+        tr:first-child .second-col {
+            height: 20px;
+            background-color: #e6f2ff;
+            vertical-align: middle;
+            font-size: 1.1em;
+            line-height: 1;
+            padding: 0 5px;
+        }
+        tr:first-child td {
+            height: 15px;
+        }
+        .smaller-row {
+            height: 30px;
+        }
+        .third-col {
+            width: 110px;
+            min-width: 200px;
+            position: relative;
+            border-left: 1px solid #000;
+            padding-left: 10px;
+        }
+        .fourth-col {
+            width: 120px;
+            min-width: 200px;
+            padding: 2px 5px;
+            border-left: none;
+            position: relative;
+        }
+    .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+</head>
+<body>
+        <div class="pdf-content">
+    <!-- HEADER -->
+    <table style="width: 100%; table-layout: fixed; margin: 0 auto;">
+        <tr style="height: 40px;">
+            <td rowspan="2" class="first-col" style="height: 100%;">
+                <div style="display: flex; align-items: center; height: 100%;">
+                    <img src="{% static 'logo.jpg' %}" style="max-width: 100%; max-height: 100%;">
+                </div>
+            </td>
+            <td class="second-col">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 1.3em;">
+                    <div style="padding-left: 120px;"><strong>GAMME DE TRAVAIL</strong></div>
+                    <div style="padding-right: 30px;"><strong>n° clt 001</strong></div>
+                </div>
+            </td>
+            <td rowspan="2" class="third-col" style="height: 100%;">
+                <div style="display: flex; height: 100%;">
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: flex-start; padding: 0; overflow: visible; width: 100%; height: 100%;">
+                        <img src="{% static 'pic.jpg' %}" style="width: auto; height: 150%; object-fit: contain; margin-left: 5px;">
+                    </div>
+                    <div style="flex: 1; display: flex; align-items: center; padding: 5px;">
+                        <div style="width: 100%;">
+                            <div style="display: grid; grid-template-columns: auto 1fr 1fr; gap: 5px 10px; align-items: center;">
+                                <div>S</div>
+                                <div><input type="checkbox"> Oui</div>
+                                <div><input type="checkbox"> Non</div>
+                                <div>R</div>
+                                <div><input type="checkbox"> Oui</div>
+                                <div><input type="checkbox"> Non</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td rowspan="2" class="fourth-col">
+                <div style="width: 100%; padding: 0; position: relative;">
+                    <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px; padding: 0 10px; font-size: 0.9em;">
+                        <span style="margin-right: auto;">Etabli par :</span>
+                        <div><input type="checkbox" class="etabli-par" data-other="abserve"> Client</div>
+                        <div><input type="checkbox" class="etabli-par" data-other="client" checked> AB Serve</div>
+                        <script>
+                            document.querySelectorAll('.etabli-par').forEach(checkbox => {
+                                checkbox.addEventListener('change', function() {
+                                    if (this.checked) {
+                                        const otherCheckbox = document.querySelector(`.etabli-par[data-other="${this.dataset.other}"]`);
+                                        if (otherCheckbox) otherCheckbox.checked = false;
+                                    }
+                                });
+                            });
+                        </script>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 1px; padding: 1px 0;">
+                        <div style="width: 50%; margin-left: auto; height: 1px; background-color: black; margin-bottom: 0;"></div>
+                        <div style="display: grid; grid-template-columns: 1fr auto; padding: 0 10px 0 10px; font-size: 0.9em;">
+                            <span style="text-align: left;">Date:</span>
+                            <span>{{mission.date_mise_a_jour|date:"Y"}}</span>
+                        </div>
+                        <div style="width: 50%; margin-left: auto; height: 1px; background-color: black;"></div>
+                        <div style="display: grid; grid-template-columns: 1fr auto; padding: 0 10px; font-size: 0.9em;">
+                            <span style="text-align: left;">N° d'incident :</span>
+                            <span>{{ gammecontrole.No_incident }}</span>
+                        </div>
+                        <div style="width: 50%; margin-left: auto; height: 1px; background-color: black;"></div>
+                        <div style="display: grid; grid-template-columns: 1fr auto; padding: 0 10px; font-size: 0.9em;">
+                            <span style="text-align: left;">Concerne :</span>
+                            <span>Démonstration Clt</span>
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr class="smaller-row">
+            <td class="second-col" style="text-align: left; font-size: 1.2em; padding-left: 40px;">
+                <strong>SITE :    &nbsp;&nbsp;AB Serve - Woippy</strong>
+            </td>
+        </tr>
+    </table>
+
+    <!-- INFO -->
+    <table style="width: 100%; table-layout: fixed; margin: 0; border-collapse: collapse; border-top: none;">
+        <tr>
+            <td style="border: 1px solid #000; border-top: none; padding: 5px 10px; text-align: left; width: 12%;">
+                <div style="font-weight: bold; white-space: nowrap;">Client : &nbsp;Démonstration</div>
+            </td>
+            <td style="border: 1px solid #000; border-top: none; padding: 5px; text-align: center; width: 25%;">
+                <div style="font-weight: bold;">Référence pièce :&nbsp;{{mission.produitref}}</div>
+            </td>
+            <td style="border: 1px solid #000; border-top: none; padding: 5px; text-align: center; width: 25%;">
+                <div style="font-weight: bold;"> Désignation :&nbsp; {{mission.intitule}}</div>
+            </td>
+            <td style="border: 1px solid #000; border-top: none; padding: 5px; text-align: center; width: 15%;">
+                <div style="font-weight: bold; text-align: right; padding-right: 15px;">Temps alloué :&nbsp;&nbsp;&nbsp; 5000/jour</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- MAIN TABLE + SIGNATURE -->
+    <div style="width: 100%; overflow-x: auto; display: flex; align-items: stretch; min-height: 100%;">
+        <div style="flex: 1; display: flex; flex-direction: column; position: relative;">
+            <!-- MAIN TABLE -->
+            <table style="width: 100%; table-layout: fixed; margin: 0; border-collapse: collapse; border-spacing: 0; min-height: 710px;">
+                <tr style="background-color: #e6f2ff; height: 60px;">
+                    <th style="width: 60px; min-width: 60px; max-width: 60px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word;">N° OP</th>
+                    <th style="width: 200px; min-width: 200px; max-width: 200px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word;">OPÉRATION</th>
+                    <th style="width: 250px; min-width: 250px; max-width: 250px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word; white-space: normal;">Moyens de Contrôle & Fréquence</th>
+                    <th style="width: 400px; min-width: 400px; max-width: 400px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word; white-space: normal;">SCHEMAS, PHOTOS, DESCRIPTION</th>
+                </tr>
+
+                <!-- FIXED 1 TO 8 -->
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">1</td>  
+                    <td style="text-align: center;">{{ operations.1.description }}</td>
+                    <td></td>
+                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 135px;">
+                        {% for photo in operations.1.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">2</td>
+                    <td style="text-align: center;">{{ operations.2.description }}</td>
+                    <td></td>
+                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
+                        {% for photo in operations.2.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">3</td>
+                    <td style="text-align: center;">{{ operations.3.description }}</td>
+                    <td></td>
+                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
+                        {% for photo in operations.3.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">4</td>
+                    <td style="text-align: center;">{{ operations.4.description }}</td>
+                    <td></td>
+                    <td style="vertical-align: top; min-height: 135px;">
+                        {% for photo in operations.4.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">5</td>
+                    <td style="text-align: center;">{{ operations.5.description }}</td>
+                    <td></td>
+                    <td style="vertical-align: top;">
+                        {% for photo in operations.5.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">6</td>
+                    <td style="text-align: center;">{{ operations.6.description }}</td>
+                    <td></td>
+                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
+                        {% for photo in operations.6.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">7</td>
+                    <td style="text-align: center;">{{ operations.7.description }}</td>
+                    <td></td>
+                    <td style="min-height: 135px;">
+                        {% for photo in operations.7.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr style="height: 70px;">
+                    <td style="text-align: center;">8</td>
+                    <td style="text-align: center;">{{ operations.8.description }}</td>
+                    <td></td>
+                    <td style="min-height: 135px;">
+                        {% for photo in operations.8.photos %}
+                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
+                        {% endfor %}
+                    </td>
+                </tr>
+            </table>
+
+            <!-- APPROVAL TABLE -->
+            <table style="width: 100%; table-layout: fixed; margin: 0; border-collapse: collapse; border-spacing: 0;">
+                <tbody>
+                    <tr style="height: 30px;" > 
+                               <td colspan="4" style="border: 1px solid #000; background-color: #fff; padding: 5px; vertical-align: middle;"> 
+                                    <div style="color: red; font-weight: bold; font-size: 14px; line-height: 1.4; text-align: center;"> 
+                                               IMPORTANT: UN point de contrôle par numéro.<br>         
+                                                      Le point 8 peut-être utilisé ponctuellement pour optimiser la répartition des contrôles.       
+                                                         </div>
+                                                        </td>   
+                                                           <td>     
+                                                                   <img src="/static/8.jpg" alt="8" style="width: 100px; height: auto; display: block;">  
+                                                          </td> 
+                                                          <td>   
+            
+                                                            <img src="/static/9.jpg" alt="8" style="width: 100px; height: auto; display: block;">       
+                                                         </td>       
+                                                          <td>       
+                                                               <img src="/static/10.jpg" alt="8" style="width: 100px; height: auto; display: block;">  
+                                                                  </td>  
+                                                                        <td>  
+                                                                              <img src="/static/11.jpg" alt="8" style="width: 100px; height: auto; display: block;">        </td>        <td></td>    </tr>    <!-- APPROVAL ROW -->    <tr style="background-color: #e6f2ff; font-weight: bold; height: 90px;">  
+                                                                                      <td rowspan="2" style="width: 30px; text-align: center; vertical-align: middle; padding: 0; border: 1px solid #000; background-color: #e6f2ff;">            <div style="transform: rotate(-90deg); transform-origin: center; white-space: nowrap; font-size: 16px; font-weight: bold; width: 100px; margin-left: -35px;"> APPROBATION            </div>
+                                                                                            </td>  
+                                                                                                  <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 14px; vertical-align: middle; font-weight: bold;">Rédacteur AB Serve</td>
+                                                                                                          <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 14px; vertical-align: middle; font-weight: bold;"> Validation AB Serve 
+                                                                                                            (Resp. Site / Resp. Régional ) 
+                                                                                                        </td> 
+                                                                                                                 <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 14px; vertical-align: middle; font-weight: bold;"> Validation CLIENT</td>  
+                                                                                                                   <td>Chaussures de sécurité</td>   
+                                                                                                                    <td>Gants</td>
+                                                                                                                     <td>Protections auditives</td> 
+                                                                                                                        <td>Lunette de protection</td> 
+                                                                                                                           <td> Autres</td>
+                                                                                                                        </tr>    
+                                                                                                                        <tr style="height: 80px;"> 
+                                                                                                                                   <td style="border: 1px solid #000; padding: 8px; font-size: 12px; line-height: 1.4; vertical-align: top; text-align: left;">
+                                                                                                                                       {% if rs_user %}
+                                                                                                                                    <div style="margin-bottom: 3px;"><strong>NOM :</strong> {{ rs_user.get_full_name|default:rs_user.username }}</div>
+                                                                                                                                       <div style="margin-bottom: 3px;"><strong>FONCTION :</strong> RS</div>
+                                                                                                                                       <div style="margin-bottom: 3px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div>
+                                                                                                                                       <div><strong>VISA :</strong> Électronique</div>
+                                                                                                                                       {% else %}
+                                                                                                                                       <div style="margin-bottom: 3px;"><strong>NOM :</strong> Non spécifié</div>
+                                                                                                                                       <div style="margin-bottom: 3px;"><strong>FONCTION :</strong> RS</div>
+                                                                                                                                       <div style="margin-bottom: 3px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div>
+                                                                                                                                       <div><strong>VISA :</strong> Électronique</div>
+                                                                                                                                       {% endif %}
+                                                                                                                                    </td> 
+                                                                                                              <td style="border: 1px solid #000; padding: 8px; font-size: 12px; line-height: 1.4; vertical-align: top; text-align: left;">  
+                                                                                                                          {% if ro_user %}
+                                                                                                                          <div style="margin-bottom: 3px;"><strong>NOM :</strong> {{ ro_user.get_full_name|default:ro_user.username }}</div>    
+                                                                                                                                  <div style="margin-bottom: 3px;"><strong>FONCTION :</strong> RO</div>         
+                                                                                                                                     <div style="margin-bottom: 3px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div>    
+                                                                                                                                           <div><strong>VISA :</strong> Électronique</div>      
+                                                                                                                                          {% else %}
+                                                                                                                                          <div style="margin-bottom: 3px;"><strong>NOM :</strong> Non spécifié</div>
+                                                                                                                                          <div style="margin-bottom: 3px;"><strong>FONCTION :</strong> RO</div>         
+                                                                                                                                             <div style="margin-bottom: 3px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div>    
+                                                                                                                                                   <div><strong>VISA :</strong> Électronique</div>      
+                                                                                                                                                  {% endif %}
+                                                                                                                                          </td>                
+                                                                                                                                          <td style="border: 1px solid #000; padding: 8px; font-size: 12px; line-height: 1.4; vertical-align: top; text-align: left;">   
+                                                                                                                                                     <div style="margin-bottom: 3px;"><strong>NOM :</strong>&nbsp;&nbsp;&nbsp; M. Client</div> 
+                                                                                                                                                               <div style="margin-bottom: 3px;"><strong>FONCTION :</strong>&nbsp;&nbsp; Qualité</div>  
+                                                                                                                                                                      <div style="margin-bottom: 3px;"><strong>DATE :</strong>&nbsp;&nbsp; {% now "d/m/Y" %}</div> 
+                                                                                                                                                                                <div><strong>VISA :</strong>&nbsp;&nbsp; Électronique</div> 
+                                                                                                                                                                                   </td>      
+                                                                                                                                                                                     <td>X</td> 
+                                                                                                                                                                                           <td>X</td> 
+                                                                                                                                                                                                  <td>NA</td> 
+                                                                                                                                                                                                         <td>NA</td>  
+                                                                                                                                                                                                            <td></td>  
+                                                                                                                                                                                                          </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SIGNATURE TABLE -->
+        <div style="display: flex; flex-direction: column; width: 160px; border: 1px solid #000; margin-left: -1px; height: auto; position: relative; top: 0; bottom: 0;">
+            <div style="height: 60px; background-color: #e6f2ff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #000; padding: 5px;">
+                <div style="text-align: center; font-weight: bold;">Identification, marquage, traçabilité</div>
+            </div>
+            <div style="padding: 10px; text-align: center; border-bottom: 1px solid #000;">
+                <strong>Etiquette verte "AB Serve Conforme" sur boîte</strong>
+            </div>
+            <div style="height: 60px; background-color: #e6f2ff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #000; padding: 5px;">
+                <div style="text-align: center; font-weight: bold;">En cas de détection de non conformité</div>
+            </div>
+            <div style="padding: 10px; color: red; border-bottom: 1px solid #000;">
+                <p style="margin: 2px 0;">- Les pièces non conformes sont à identifier et à isoler.</p>
+                <p style="margin: 2px 0;">- Les pièces tombées doivent être écartées et identifiées.</p>
+                <p style="margin: 2px 0;">- Prévenez votre responsable pour prise de décision.</p>
+            </div>
+            <div style="height: 60px; background-color: #e6f2ff; display: flex; align-items: center; justify-content: center; padding: 5px;">
+                <div style="text-align: center; font-weight: bold;">Légende des pictogrammes</div>
+            </div>
+            <div style="padding: 5px; position: relative; height: 100%;">
+                <div style="position: absolute; top: 0; bottom: 0; left:40%; border-left: 1px solid #000;"></div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <img src="{% static '1.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">POINT CRITIQUE</div>
+                </div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <img src="{% static '2.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">Contrôle visuel</div>
+                </div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <img src="{% static '3.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">Contrôle tactile</div>
+                </div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <img src="{% static '4.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">Contrôle outil</div>
+                </div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <img src="{% static '5.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">Chemin de contrôle</div>
+                </div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <img src="{% static '6.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">Départ chemin</div>
+                </div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <img src="{% static '7.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;"> Fin chemin</div>
+                </div>
+                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
+                    <div style="flex: 1; text-align: center; padding: 5px 0;">
+                        <div style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;"></div>
+                    </div>
+                    <div style="flex: 1; text-align: center; padding: 5px 0;"> </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <br>
+    <div><center>Page 1</center></div>
+    <br><br><br>
+    <div class="page-break" style="page-break-before: always; margin-top: 20px;">
+        <div style="background-color: #ff0000; color: white; text-align: center; padding: 10px 0; font-weight: bold; font-size: 16px; width: 100%;">
+            DÉFAUT NON ADMISSIBLE
+        </div>
+       
+        <div style="padding: 20px;">
+            <table style="width:80%;border-collapse:collapse">
+                {% if photo_defauts %}
+                    {% for photo in photo_defauts %}
+                        {% if forloop.counter0|divisibleby:3 %}{% if not forloop.first %}</tr>{% endif %}
+                        <tr><th colspan="3" style="background-color:#f37bcb;color:black;padding:10px;text-align:center">
+                        </th></tr><tr>
+                        {% endif %}
+                        <td style="border:1px solid #ddd;padding:15px;vertical-align:top">
+                            <div style="text-align:center;height:100%">
+                                <img src="{{ photo.image.url }}" alt="{{ photo.description }}" 
+                                     style="max-width:100%;max-height:200px;display:block;margin:0 auto 10px">
+                                <div style="font-weight:bold;word-wrap:break-word">{{ photo.description }}</div>
+                            </div>
+                        </td>
+                        {% if forloop.counter|divisibleby:3 or forloop.last %}</tr>{% if not forloop.last %}<tr>{% endif %}{% endif %}
+                    {% endfor %}
+                {% else %}
+                    {% for i in "1234567891011"|make_list %}
+                        {% with photo_num=forloop.counter|add:11 %}
+                            {% if photo_num <= 22 %}
+                                {% if forloop.counter0|divisibleby:3 %}{% if not forloop.first %}</tr>{% endif %}
+                                <tr><th colspan="3" style="background-color:#f37bcb;color:black;padding:10px;text-align:center">
+                                    Défaut par défaut {{ photo_num }}
+                                </th></tr><tr>
+                                {% endif %}
+                                <td style="border:1px solid #ddd;padding:15px;vertical-align:top">
+                                    <div style="text-align:center;height:100%">
+                                        <img src="{% static photo_num|stringformat:'s'|add:'.jpg' %}" 
+                                             alt="Défaut par défaut {{ photo_num }}" 
+                                             style="max-width:100%;max-height:200px;display:block;margin:0 auto 10px">
+                                        <div style="font-weight:bold;word-wrap:break-word">Défaut par défaut {{ photo_num }}</div>
+                                    </div>
+                                </td>
+                                {% if forloop.counter|divisibleby:3 or forloop.last %}</tr>{% if not forloop.last %}<tr>{% endif %}{% endif %}
+                            {% endif %}
+                        {% endwith %}
+                    {% endfor %}
+                {% endif %}
+            </table>
+        </div>
+      
+        
+   
+    </div>
+    <div><center>Page 2</center></div>
+   
+    
+    <div class="footer">
+        Page <span class="page-number"></span>
+    </div>
+</body>
+</html>
