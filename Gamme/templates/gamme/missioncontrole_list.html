@@ -130,6 +130,40 @@
         </table>
     </div>
 
+    <!-- PDF Links Section -->
+    <div class="card-body border-top">
+        <h5 class="mb-3">PDFs Générés</h5>
+        <div class="row">
+            {% for mission in object_list %}
+                {% if mission.pdf_file %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-header py-2">
+                                <h6 class="mb-0">{{ mission.intitule }} ({{ mission.code }})</h6>
+                            </div>
+                            <div class="card-body p-2">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+                                        <a href="{{ mission.pdf_file.url }}" target="_blank" class="text-truncate" style="max-width: 70%;">
+                                            <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
+                                            <span>Gamme PDF</span>
+                                        </a>
+                                        <small class="text-muted">Dernière modification</small>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% empty %}
+                <div class="col-12">
+                    <p class="text-muted text-center mb-0">Aucun PDF généré pour le moment.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    <!-- End PDF Links Section -->
+
     <div class="card-footer clearfix">
         <div class="float-right">
             <small>{{ object_list.count }} mission{{ object_list.count|pluralize }} trouvée{{ object_list.count|pluralize:"s" }}</small>
@@ -278,12 +312,9 @@
             }
             
             showAlert('success', 'PDF généré et enregistré avec succès!');
-            const viewBtn = document.getElementById(`view-pdf-${missionId}`);
-            if (viewBtn) {
-                viewBtn.href = data.pdf_url;
-                viewBtn.target = '_blank';
-                viewBtn.style.display = 'inline-block';
-            }
+            
+            // Reload the page to show the new PDF
+            window.location.reload();
 
         } catch (error) {
             console.error('Error in savePDF:', error);
