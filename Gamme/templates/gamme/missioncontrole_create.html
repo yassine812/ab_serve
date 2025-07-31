@@ -7,7 +7,7 @@
     <div class="card-title">Créer une mission</div>
   </div>
 
-  <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+  <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate id="missionForm">
     {% csrf_token %}
     <div class="card-body">
 
@@ -15,7 +15,17 @@
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Code</label>
-          <input type="text" name="code" class="form-control" value="{{ mission_form.code.value|default_if_none:'' }}" required>
+          <input type="text" 
+                 name="code" 
+                 id="missionCode"
+                 class="form-control" 
+                 value="{{ mission_form.code.value|default_if_none:'' }}" 
+                 required
+                 onchange="checkMissionCode()"
+                 oninput="clearCodeError()">
+          <div id="codeError" class="invalid-feedback" style="display: none;">
+            Ce code de mission existe déjà. Veuillez en choisir un autre.
+          </div>
         </div>
         <div class="col-md-6">
           <label class="form-label">Intitulé</label>
@@ -108,7 +118,7 @@ function addOperation(gammeId) {
       </div>
       <div class="col-md-3">
         <label>Ordre</label>
-        <input type="number" name="operation_${gammeId}_${operationIndex}_ordre" class="form-control" value="0">
+        <input type="number" name="operation_${gammeId}_${operationIndex}_ordre" class="form-control" value="${operationIndex + 1}">
       </div>
       <div class="col-md-12 mt-2">
         <label>Description</label>
@@ -126,6 +136,120 @@ function addOperation(gammeId) {
 
   container.appendChild(operationDiv);
 }
+
+// Function to check for duplicate mission codes
+async function checkDuplicateCode(code) {
+  try {
+    const response = await fetch(`/gamme/api/check-mission-code/?code=${encodeURIComponent(code)}`);
+    const data = await response.json();
+    return data.exists;
+  } catch (error) {
+    console.error('Error checking mission code:', error);
+    return false;
+  }
+}
+
+// Add input event listener to code field
+// Function to clear code error message
+function clearCodeError() {
+  const codeInput = document.getElementById('missionCode');
+  const errorDiv = document.getElementById('codeError');
+  if (codeInput && errorDiv) {
+    codeInput.classList.remove('is-invalid');
+    errorDiv.style.display = 'none';
+  }
+}
+
+// Function to check if mission code already exists
+async function checkMissionCode() {
+  const codeInput = document.getElementById('missionCode');
+  const errorDiv = document.getElementById('codeError');
+  
+  if (!codeInput || !errorDiv) return;
+  
+  const code = codeInput.value.trim();
+  if (!code) return;
+  
+  try {
+    const response = await fetch(`/gamme/api/check-mission-code/?code=${encodeURIComponent(code)}`);
+    const data = await response.json();
+    
+    if (data.exists) {
+      codeInput.classList.add('is-invalid');
+      errorDiv.style.display = 'block';
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking mission code:', error);
+    return false;
+  }
+}
+
+// Form submission handler
+function validateForm(event) {
+  const codeInput = document.getElementById('missionCode');
+  if (codeInput && codeInput.classList.contains('is-invalid')) {
+    event.preventDefault();
+    codeInput.focus();
+    return false;
+  }
+  return true;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeInput = document.querySelector('input[name="code"]');
+  const form = document.getElementById('missionForm');
+  let isChecking = false;
+
+  if (codeInput) {
+    codeInput.addEventListener('input', async function() {
+      const code = this.value.trim();
+      
+      // Remove previous error messages
+      const existingError = this.nextElementSibling;
+      if (existingError && existingError.classList.contains('code-error')) {
+        existingError.remove();
+      }
+      this.classList.remove('is-invalid');
+      
+      if (code.length > 0) {
+        isChecking = true;
+        const isDuplicate = await checkDuplicateCode(code);
+        isChecking = false;
+        
+        if (isDuplicate) {
+          this.classList.add('is-invalid');
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'code-error invalid-feedback d-block';
+          errorDiv.textContent = 'Ce code de mission existe déjà. Veuillez en choisir un autre.';
+          this.parentNode.insertBefore(errorDiv, this.nextSibling);
+        }
+      }
+    });
+  }
+
+  // Form submission handler
+  if (form) {
+    form.addEventListener('submit', async function(e) {
+      const codeInput = this.querySelector('input[name="code"]');
+      if (codeInput && codeInput.value.trim()) {
+        // Wait for any pending duplicate check to complete
+        while (isChecking) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Check for existing error
+        if (codeInput.classList.contains('is-invalid')) {
+          e.preventDefault();
+          codeInput.focus();
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+});
 
 function addPhoto(gammeId, operationId) {
   const container = document.getElementById(`photo-container-${gammeId}-${operationId}`);

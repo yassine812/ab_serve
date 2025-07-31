@@ -62,16 +62,41 @@ class GammeControle(models.Model):
     def __str__(self):
         return self.intitule
 
+def photo_defaut_upload_to(instance, filename):
+    """
+    Return the path where defect photos should be uploaded.
+    Format: photos/defauts/gamme_<gamme_id>/<filename>
+    """
+    return f'photos/defauts/gamme_{instance.gamme.id}/{filename}'
+
 class PhotoDefaut(models.Model):
     id = models.AutoField(primary_key=True)
-    gamme = models.ForeignKey(GammeControle, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='photos/')
-    description = models.CharField(max_length=255)
+    gamme = models.ForeignKey(GammeControle, on_delete=models.CASCADE, related_name='defaut_photos')
+    image = models.ImageField(upload_to=photo_defaut_upload_to)
+    description = models.CharField(max_length=255, blank=True, default='')
     date_ajout = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='photo_defaut_created', null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='photo_defaut_created', null=True, blank=True)
+
+    class Meta:
+        ordering = ['-date_ajout']
+        verbose_name = 'Photo de défaut'
+        verbose_name_plural = 'Photos de défaut'
 
     def __str__(self):
-        return self.description
+        return self.description or f'Photo {self.id} pour {self.gamme.intitule}'
+    
+    def delete(self, *args, **kwargs):
+        """
+        Delete the file from storage when the model instance is deleted.
+        """
+        if self.image:
+            storage, path = self.image.storage, self.image.path
+            # Delete the model first
+            super().delete(*args, **kwargs)
+            # Then delete the file
+            storage.delete(path)
+        else:
+            super().delete(*args, **kwargs)
 
 
 # ----------- OPÉRATION CONTROLE -----------

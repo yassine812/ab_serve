@@ -27,8 +27,16 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
     def get(self, request, pk):
         missioncontrole = get_object_or_404(MissionControle, pk=pk)
         operation_formset = OperationControleFormSet(prefix='form', queryset=OperationControle.objects.none())
-        # Sort gammes by last update date in descending order
-        gammes = GammeControle.objects.filter(mission=missioncontrole).order_by('-date_mise_a_jour')
+        
+        # Get gammes with prefetched photos, ordered by last update date
+        gammes = GammeControle.objects.filter(mission=missioncontrole)
+        gammes = gammes.prefetch_related('defaut_photos').order_by('-date_mise_a_jour')
+        
+        # Debug: Log gamme IDs and their photo counts
+        if logger.isEnabledFor(logging.DEBUG):
+            for gamme in gammes:
+                logger.debug(f"Gamme {gamme.id} has {gamme.defaut_photos.count()} defect photos")
+            
         return render(request, self.template_name, {
             'missioncontrole': missioncontrole,
             'gammes': gammes,
@@ -49,6 +57,9 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
         gammes = GammeControle.objects.filter(mission=missioncontrole)
         for gamme in gammes:
             intitule = request.POST.get(f'{gamme.id}-intitule', gamme.intitule)
+            # Ensure gamme title follows the format 'Gamme: [Mission Title]' if it's empty or being reset
+            if not intitule or intitule.strip() == '':
+                intitule = f"Gamme: {missioncontrole.intitule}"
             statut = request.POST.get(f'{gamme.id}-statut', 'False')
             changement_detecte = False
 
@@ -183,6 +194,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
         gamme_no_incident = request.POST.get('gamme_No_incident', '')
         gamme_statut = request.POST.get('gamme_statut')
         if gamme_intitule and gamme_statut:
+            # Create the new gamme without automatically adding operations
             new_gamme = GammeControle.objects.create(
                 mission=missioncontrole,
                 intitule=gamme_intitule,
@@ -191,31 +203,8 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 created_by=request.user,
                 version=1.0
             )
-
-            operation_formset = OperationControleFormSet(request.POST, prefix='form')
-            if operation_formset.is_valid():
-                for index, form in enumerate(operation_formset):
-                    operation = form.save(commit=False)
-                    operation.gamme = new_gamme
-                    operation.created_by = request.user
-                    # Ensure ordre is set and is a valid integer
-                    if not operation.ordre or not str(operation.ordre).isdigit():
-                        operation.ordre = index + 1  # Default to form position if ordre is invalid
-                    operation.save()
-
-                    j = 0
-                    while True:
-                        key_img = f'formop_{index}_photo_{j}'
-                        key_desc = f'formop_{index}_photo_{j}_description'
-                        if key_img in request.FILES:
-                            PhotoOperation.objects.create(
-                                operation=operation,
-                                image=request.FILES[key_img],
-                                description=request.POST.get(key_desc, '')
-                            )
-                            j += 1
-                        else:
-                            break
+            
+            # Note: Removed automatic operation creation - operations should be added manually by the user
 
         return redirect('Gamme:missioncontrole_list')
 
@@ -454,6 +443,9 @@ class GammeControleCreateView(LoginRequiredMixin,View):
             try:
                 mission = MissionControle.objects.get(id=mission_id)
                 gamme.mission = mission
+                # Set gamme title to 'Gamme: [Mission Title]' if not already set
+                if not gamme.intitule or gamme.intitule == '':
+                    gamme.intitule = f"Gamme: {mission.intitule}"
             except MissionControle.DoesNotExist:
                 messages.error(request, "Mission invalide sélectionnée.")
                 return render(request, self.template_name, {
@@ -598,6 +590,15 @@ class MissionControleCreateView(LoginRequiredMixin,View):
 
     def post(self, request):
         mission_form = MissionControleForm(request.POST)
+        
+        # Check if code already exists
+        code = request.POST.get('code')
+        if code and MissionControle.objects.filter(code=code).exists():
+            messages.error(request, "Ce code de mission existe déjà. Veuillez en choisir un autre.")
+            return render(request, self.template_name, {
+                'mission_form': mission_form,
+                'error_message': 'Ce code de mission existe déjà. Veuillez en choisir un autre.'
+            })
 
         if mission_form.is_valid():
             mission = mission_form.save(commit=False)
@@ -611,6 +612,9 @@ class MissionControleCreateView(LoginRequiredMixin,View):
                 version = request.POST.get('gamme_0_version', '1.0')
 
                 no_incident = request.POST.get('gamme_0_no_incident', '')
+                # Ensure gamme title follows the format 'Gamme: [Mission Title]' if it's empty or being reset
+                if not intitule or intitule.strip() == '':
+                    intitule = f"Gamme: {mission.intitule}"
                 gamme = GammeControle.objects.create(
                     mission=mission,
                     intitule=intitule,
@@ -780,10 +784,26 @@ class OperationControleListView(ListView,LoginRequiredMixin):
             context['mission'] = get_object_or_404(MissionControle, pk=mission_id)
         return context
 
-class OperationControleDeleteView(DeleteView,LoginRequiredMixin):
+class OperationControleDeleteView(LoginRequiredMixin, DeleteView):
     model = OperationControle
     template_name = 'gamme/operationcontrole_delete.html'
     success_url = reverse_lazy('Gamme:operationcontrole_list')
+
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        if is_ajax:
+            try:
+                self.object.delete()
+                return JsonResponse({'success': True})
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        else:
+            success_url = self.get_success_url()
+            self.object.delete()
+            messages.success(request, "L'opération a été supprimée avec succès.")
+            return redirect(success_url)
 
 class OperationControleDetailView(DetailView,LoginRequiredMixin):
     model = OperationControle
@@ -1106,10 +1126,103 @@ def view_gamme_pdf(request, mission_id):
 
 
 import logging
+import json
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+
 logger = logging.getLogger(__name__)
 
 
 @csrf_exempt
+@require_http_methods(['POST'])
+@csrf_exempt
+def upload_photo_defaut(request):
+    """
+    View to handle uploading defect photos for a gamme.
+    Expected POST data:
+    - gamme_id: ID of the gamme
+    - photos: One or more image files
+    - description: Optional description for the photos
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=403)
+
+    try:
+        gamme_id = request.POST.get('gamme_id')
+        description = request.POST.get('description', '')
+        
+        if not gamme_id:
+            return JsonResponse({'success': False, 'error': 'Missing gamme_id'}, status=400)
+            
+        gamme = get_object_or_404(GammeControle, id=gamme_id)
+        
+        # Handle multiple file uploads
+        files = request.FILES.getlist('photos')
+        if not files:
+            return JsonResponse({'success': False, 'error': 'No files provided'}, status=400)
+        
+        saved_photos = []
+        for file in files:
+            # Save the file using the storage API
+            file_path = default_storage.save(f'photos/defaut_{gamme_id}_{file.name}', ContentFile(file.read()))
+            
+            # Create PhotoDefaut instance
+            photo = PhotoDefaut.objects.create(
+                gamme=gamme,
+                image=file_path,
+                description=description,
+                created_by=request.user
+            )
+            saved_photos.append({
+                'id': photo.id,
+                'url': photo.image.url,
+                'description': photo.description
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully uploaded {len(saved_photos)} photos',
+            'photos': saved_photos
+        })
+        
+    except Exception as e:
+        logger.error(f'Error uploading defect photos: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@require_http_methods(['POST'])
+@csrf_exempt
+def delete_photo_defaut(request, photo_id):
+    """
+    View to delete a defect photo.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=403)
+    
+    try:
+        photo = get_object_or_404(PhotoDefaut, id=photo_id)
+        gamme_id = photo.gamme.id
+        
+        # Delete the file from storage
+        if photo.image:
+            photo.image.delete(save=False)
+            
+        # Delete the database record
+        photo.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Photo deleted successfully',
+            'gamme_id': gamme_id
+        })
+        
+    except Exception as e:
+        logger.error(f'Error deleting defect photo: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 def save_mission_pdf(request, mission_id):
     """View to save an uploaded PDF file to the MissionControle model.
     

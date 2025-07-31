@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+<form method="post" enctype="multipart/form-data" id="missionForm" class="needs-validation" novalidate>
   {% csrf_token %}
   <style>
     .photo-cell {
@@ -218,6 +218,9 @@
                     <a class="btn btn-sm btn-outline-info" data-bs-toggle="collapse" href="#tableOperationsGamme{{ gamme.id }}">
                       Afficher les opérations
                     </a>
+                    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#photoDefautModal{{ gamme.id }}">
+                      <i class="bi bi-camera"></i> ajouter des images de defaut
+                    </button>
                   </div>
 
                   <!-- Modifier gamme -->
@@ -292,7 +295,7 @@
                               </div>
                             </td>
                             <td>
-                              <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeOperation('{{ op.id }}')">
+                              <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeOperation('{{ op.id }}', event)">
                                 <i class="bi bi-trash"></i> Supprimer
                               </button>
                             </td>
@@ -306,7 +309,7 @@
 
                   <!-- Ajouter opération (formulaire) -->
                   <div class="collapse mb-3" id="addOperationGamme{{ gamme.id }}">
-                    <div class="card card-light mb-3 operation-form" id="newOpForm-{{ gamme.id }}-0">
+                    <div class="card card-light mb-3 operation-form" id="newOpForm-{{ gamme.id }}-0" style="display: none;">
                       <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                           <h6 class="card-title">Nouvelle opération</h6>
@@ -506,12 +509,87 @@
 
         <div class="card-footer d-flex justify-content-end gap-2">
           <a href="{% url 'Gamme:missioncontrole_list' %}" class="btn btn-secondary">Annuler</a>
-          <button type="submit" class="btn btn-primary">Enregistrer</button>
+          <button type="button" class="btn btn-primary" onclick="submitForm()">Enregistrer</button>
         </div>
       </div>
     </div>
   </div>
 </form>
+
+<!-- Photo Defaut Modal -->
+{% for gamme in gammes %}
+<div class="modal fade" id="photoDefautModal{{ gamme.id }}" tabindex="-1" aria-labelledby="photoDefautModalLabel{{ gamme.id }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title" id="photoDefautModalLabel{{ gamme.id }}">Ajouter des photos de défaut - {{ gamme.intitule }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="photoDefautForm{{ gamme.id }}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="gamme_id" value="{{ gamme.id }}">
+          
+          <div class="mb-3">
+            <label for="photos" class="form-label">Sélectionner des photos</label>
+            <input class="form-control" type="file" id="photos{{ gamme.id }}" name="photos" multiple accept="image/*" required>
+            <div class="form-text">Sélectionnez une ou plusieurs images à télécharger.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="description" class="form-label">Description (optionnelle)</label>
+            <input type="text" class="form-control" id="description{{ gamme.id }}" name="description" placeholder="Description des défauts">
+          </div>
+          
+          <div class="d-flex justify-content-between align-items-center">
+            <div id="uploadStatus{{ gamme.id }}" class="text-muted"></div>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-upload"></i> Télécharger
+            </button>
+          </div>
+        </form>
+        
+        <hr>
+        
+        <h6>Photos existantes</h6>
+        <div id="existingPhotos{{ gamme.id }}" class="row g-2">
+          {% for photo in gamme.defaut_photos.all %}
+          <div class="col-md-3 col-6">
+            <div class="card h-100">
+              <div class="position-relative" style="height: 120px; overflow: hidden;">
+                <img src="{{ photo.image.url }}" class="card-img-top h-100 w-100" alt="{{ photo.description }}" style="object-fit: cover; cursor: pointer;" onclick="zoomPhoto(this)">
+                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" 
+                        onclick="event.stopPropagation(); deletePhotoDefaut('{{ photo.id }}', this)" 
+                        title="Supprimer"
+                        data-photo-id="{{ photo.id }}">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+              <div class="card-body p-2">
+                <p class="card-text small text-muted mb-0">
+                  <i class="bi bi-calendar3 me-1"></i> {{ photo.date_ajout|date:"d/m/Y H:i" }}
+                </p>
+                {% if photo.description %}
+                <p class="card-text small mb-0 mt-1">{{ photo.description }}</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="col-12">
+            <div class="text-center p-4 border rounded bg-light">
+              <i class="bi bi-images fs-1 text-muted mb-2"></i>
+              <p class="text-muted mb-0">Aucune photo de défaut pour l'instant.</p>
+              <p class="small text-muted mt-2">Utilisez le formulaire ci-dessus pour ajouter des photos.</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
 
 <!-- Zoom overlay -->
 <div class="zoom-overlay" id="photoZoom" role="dialog" aria-modal="true" aria-labelledby="zoomedImage">
@@ -525,38 +603,62 @@
   let newOpCount = 1; // for new ops in new gamme form
   let newOpPhotoCount = {};
 
-  // Remove operation function
-  function removeOperation(opId) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette opération ?')) {
-      const url = `/gamme/operationcontrole/${opId}/delete/`;
-      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrfToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-      })
-      .then(response => {
-        if (response.ok) {
-            // Remove the row from the editable table
-            const row = document.querySelector(`tr[data-op-id="${opId}"]`);
-            if (row) {
-              row.remove();
-            }
-            // Also remove the row from the display-only table
-            const displayRow = document.querySelector(`#tableOperationsGamme{{ gamme.id }} tr[data-op-id="${opId}"]`);
-            if (displayRow) {
-              displayRow.remove();
-            }
-          } else {
-          alert('Erreur lors de la suppression de l\'opération.');
-        }
-      })
-      .catch(error => console.error('Error:', error));
+  // Remove operation function - Direct deletion with AJAX
+  function removeOperation(opId, event) {
+    event.preventDefault(); // Prevent default form submission
+    event.stopPropagation(); // Stop event bubbling
+    
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette opération ?')) {
+      return;
     }
+    
+    const url = `/gamme/operationcontrole/${opId}/delete/`;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const deleteButton = event.target.closest('button');
+    const originalText = deleteButton.innerHTML;
+    deleteButton.disabled = true;
+    deleteButton.innerHTML = '<i class="bi bi-hourglass"></i>';
+
+    const row = deleteButton.closest('tr');
+    row.style.opacity = '0.5';
+    row.style.transition = 'opacity 0.3s ease-out';
+
+    // Send the delete request with AJAX
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-Requested-With': 'XMLHttpRequest'  // This header tells Django it's an AJAX request
+      },
+      // We don't need to send any data, just the CSRF token
+    })
+    .then(response => {
+      // Don't try to parse JSON, just check if the request was successful
+      if (response.ok) {
+        // If successful, remove the row
+        row.style.opacity = '0';
+        setTimeout(() => {
+          row.remove();
+          // Update row numbers if needed
+          const table = document.querySelector('table');
+          if (table) {
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach((row, index) => {
+              const numberCell = row.querySelector('td:first-child');
+              if (numberCell) {
+                numberCell.textContent = index + 1;
+              }
+            });
+          }
+        }, 300);
+      } else {
+        // If not successful, show error
+        throw new Error('Server returned an error');
+      }
+    })
+    
   }
 
   // Add new photo input for existing operation
@@ -686,8 +788,27 @@
 
   // Add a new operation form
   function showAddOperationForm(gammeId) {
-    operationCounter++;
     const container = document.getElementById(`addOperationGamme${gammeId}`);
+    
+    // Check if this is the first time adding an operation (default form is still hidden)
+    const isFirstOperation = !container.querySelector('.operation-form:not([style*="display: none"])');
+    
+    if (isFirstOperation) {
+      // Show the default form
+      const defaultForm = container.querySelector('.operation-form');
+      if (defaultForm) {
+        defaultForm.style.display = 'block';
+        // Ensure the container is visible
+        const bsCollapse = bootstrap.Collapse.getInstance(container) || new bootstrap.Collapse(container);
+        if (!container.classList.contains('show')) {
+          bsCollapse.show();
+        }
+        return;
+      }
+    }
+    
+    // For subsequent operations, create a new form
+    operationCounter++;
     
     // Get the first form as a template
     const template = container.querySelector('.operation-form');
@@ -696,6 +817,7 @@
     // Create a new form
     const newForm = template.cloneNode(true);
     newForm.id = `newOpForm-${gammeId}-${operationCounter}`;
+    newForm.style.display = 'block';
     
     // Update all form fields
     const formInputs = newForm.querySelectorAll('input, textarea, select');
@@ -703,14 +825,23 @@
       if (input.name) {
         input.name = input.name.replace(/newop_\d+_\d+_/, `newop_${gammeId}_${operationCounter}_`);
       }
-    });
-    
-    // Clear values
-    formInputs.forEach(input => {
+      // Clear values except for the order field
       if (input.type !== 'button' && input.type !== 'submit') {
         input.value = '';
       }
     });
+    
+    // Set the order field to the next available number
+    const orderInput = newForm.querySelector('input[name$="_ordre"]');
+    if (orderInput) {
+      // Get all existing order values to find the next available number
+      const existingOrders = Array.from(container.querySelectorAll('input[name$="_ordre"]'))
+        .map(input => parseInt(input.value) || 0)
+        .filter(val => !isNaN(val) && val > 0);
+      
+      const maxOrder = existingOrders.length > 0 ? Math.max(...existingOrders) : 0;
+      orderInput.value = maxOrder + 1;
+    }
     
     // Add after the last form
     container.appendChild(newForm);
@@ -859,10 +990,184 @@
     overlay.style.display = 'none';
   }
 
+  // Handle photo upload form submission
+  document.querySelectorAll('[id^=photoDefautForm]').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const gammeId = formData.get('gamme_id');
+      const statusEl = document.getElementById(`uploadStatus${gammeId}`);
+      
+      statusEl.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Chargement...</span></div> Téléchargement...';
+      
+      const uploadUrl = '{% url "Gamme:upload_photo_defaut" %}';
+      fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Téléchargement réussi</span>';
+          // Reload the page to show the new photos
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          statusEl.innerHTML = `<span class="text-danger">Erreur: ${data.error || 'Erreur inconnue'}</span>`;
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        statusEl.innerHTML = '<span class="text-danger">Erreur lors du téléchargement</span>';
+      });
+    });
+  });
+
+  // Delete photo defaut
+  window.deletePhotoDefaut = function(photoId, btn) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) return;
+    
+    const card = btn.closest('.col-md-3');
+    card.style.opacity = '0.5';
+    
+    fetch(`/gamme/photo-defaut/${photoId}/delete/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        card.remove();
+        // If no photos left, show message
+        if (!document.querySelector(`#existingPhotos${data.gamme_id} .col-md-3`)) {
+          document.querySelector(`#existingPhotos${data.gamme_id}`).innerHTML = 
+            '<div class="col-12"><p class="text-muted">Aucune photo de défaut pour l\'instant.</p></div>';
+        }
+      } else {
+        alert('Erreur lors de la suppression: ' + (data.error || 'Erreur inconnue'));
+        card.style.opacity = '1';
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Erreur lors de la suppression');
+      card.style.opacity = '1';
+    });
+  };
+
+  // Custom form submission handler
+  function submitForm() {
+    const form = document.getElementById('missionForm');
+    console.log('Form submission attempted');
+    if (form.checkValidity()) {
+      console.log('Form is valid, submitting...');
+      form.submit();
+    } else {
+      console.log('Form is invalid');
+      // Show validation feedback
+      form.classList.add('was-validated');
+      // Scroll to first invalid field
+      const invalid = form.querySelector(':invalid');
+      if (invalid) {
+        invalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        invalid.focus();
+      }
+    }
+  }
+
   // Close zoom overlay by clicking outside image or description
   document.getElementById('photoZoom').addEventListener('click', function(e) {
     if(e.target === this) {
       closeZoom();
+    }
+  });
+
+  function checkForDuplicateOrders() {
+    const orderValues = new Map(); // Map to store order values and their input elements
+    let hasDuplicates = false;
+    
+    // Find all order inputs in the form
+    const orderInputs = document.querySelectorAll('input[name$="_ordre"], input[name$="-ordre"]');
+    
+    // Reset previous error states
+    document.querySelectorAll('.order-error').forEach(el => el.remove());
+    orderInputs.forEach(input => input.classList.remove('is-invalid'));
+    
+    // Check each order input
+    for (const input of orderInputs) {
+      const value = input.value.trim();
+      if (value === '' || isNaN(value)) continue; // Skip empty or invalid numbers
+      
+      if (orderValues.has(value)) {
+        // Found a duplicate
+        hasDuplicates = true;
+        // Mark both inputs as invalid
+        input.classList.add('is-invalid');
+        orderValues.get(value).classList.add('is-invalid');
+        
+        // Add error message if not already present
+        if (!input.nextElementSibling || !input.nextElementSibling.classList.contains('order-error')) {
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'order-error invalid-feedback d-block';
+          errorDiv.textContent = 'Cette valeur d\'ordre est déjà utilisée. Veuillez en choisir une autre.';
+          input.parentNode.insertBefore(errorDiv, input.nextSibling);
+        }
+      } else {
+        orderValues.set(value, input);
+      }
+    }
+    
+    return hasDuplicates;
+  }
+  
+  // Add event listeners to order inputs for real-time validation
+  document.addEventListener('input', function(e) {
+    if (e.target.matches('input[name$="_ordre"], input[name$="-ordre"]')) {
+      // Add a small delay to allow the value to update
+      setTimeout(() => {
+        const input = e.target;
+        input.classList.remove('is-invalid');
+        const errorDiv = input.nextElementSibling;
+        if (errorDiv && errorDiv.classList.contains('order-error')) {
+          errorDiv.remove();
+        }
+        checkForDuplicateOrders();
+      }, 100);
+    }
+  });
+
+  // Form validation before submission
+  document.querySelector('form').addEventListener('submit', function(e) {
+    // First, ensure all order fields have valid numbers
+    const orderInputs = this.querySelectorAll('input[name$="_ordre"], input[name$="-ordre"]');
+    for (const input of orderInputs) {
+      if (input.value.trim() === '' || isNaN(input.value)) {
+        input.value = '0';
+      }
+    }
+    
+    // Check for duplicate order numbers
+    if (checkForDuplicateOrders()) {
+      e.preventDefault();
+      // Scroll to the first error
+      const firstError = document.querySelector('.is-invalid');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return false;
+    }
+    
+    // Also check new operation forms for empty values
+    const newOrderInputs = this.querySelectorAll('input[name^="newop_"]');
+    for (const input of newOrderInputs) {
+      if (input.name.endsWith('_ordre') && (input.value.trim() === '' || isNaN(input.value))) {
+        input.value = '0';
+      }
     }
   });
 </script>

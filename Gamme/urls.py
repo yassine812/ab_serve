@@ -5,7 +5,7 @@ from .views import (GammeControleCreateView, GammeControleDetailView, GammeContr
                     OperationControleDetailView,
                     PhotoOperationCreateView, PhotoOperationListView, PhotoOperationUpdateView, PhotoOperationDeleteView,
                     UserListView, UserUpdateView, OperatorDashboardView, op_edit, UserDeleteView, DashboardView, ProfileView, 
-                    login, logoutView, RegisterView, ajouter_utilisateur, save_mission_pdf)
+                    login, logoutView, RegisterView, ajouter_utilisateur, save_mission_pdf, upload_photo_defaut, delete_photo_defaut)
 app_name = 'Gamme'
 urlpatterns = [
     path('gamme/gammecontrole/create/', GammeControleCreateView.as_view(), name='gammecontrole_create'),
@@ -45,5 +45,9 @@ urlpatterns = [
     path('gamme/pdf/<int:mission_id>/', view_gamme_pdf, name='view_gamme_pdf'),
     # URL for saving PDF to server
     path('gamme/missioncontrole/<int:mission_id>/save-pdf/', save_mission_pdf, name='save_mission_pdf'),
+    
+    # Photo defaut URLs
+    path('gamme/photo-defaut/upload/', upload_photo_defaut, name='upload_photo_defaut'),
+    path('gamme/photo-defaut/<int:photo_id>/delete/', delete_photo_defaut, name='delete_photo_defaut'),
     
 ]
