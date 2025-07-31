@@ -98,7 +98,6 @@
                     <td class="align-middle">
                         <div class="d-flex justify-content-center gap-2">
                             <div class="btn-group">
-                                {% if user.is_rs and mission.gammes.exists %}
                               
                                 
                                
@@ -106,7 +105,7 @@
                                         onclick="savePDF('{{ mission.id }}', this)"
                                         title="Enregistrer le PDF">
                                     <i class="bi bi-file-pdf"></i>
-                                </button>{% endif %}
+                                </button>
                                 <a href="{% url 'Gamme:missioncontrole_update' mission.id %}" class="btn btn-outline-warning btn-sm" 
                                    title="Modifier">
                                     <i class="bi bi-pencil-square"></i>
