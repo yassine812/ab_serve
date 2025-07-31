@@ -179,6 +179,30 @@
               </select>
             </div>
           </div>
+          
+          <!-- PDF Links Section -->
+          {% if missioncontrole.pdf_file %}
+          <div class="row mt-4">
+            <div class="col-12">
+              <div class="card card-light">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">PDF Généré</h5>
+                </div>
+                <div class="card-body p-2">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <a href="{{ missioncontrole.pdf_file.url }}" target="_blank" class="text-decoration-none">
+                      <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
+                      <span>GammePdf</span>
+                    </a>
+                    <small class="text-muted">Dernière modification</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          <!-- End PDF Links Section -->
+          
         </div>
       </div>
     </div>
