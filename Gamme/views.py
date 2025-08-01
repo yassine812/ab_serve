@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Max
 import os
 import logging
 from django.views.generic import ListView,DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
@@ -45,107 +46,180 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
 
     def post(self, request, pk):
         missioncontrole = get_object_or_404(MissionControle, pk=pk)
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
+        try:
+            # --- Mise à jour des champs mission ---
+            missioncontrole.code = request.POST.get('code', missioncontrole.code)
+            missioncontrole.intitule = request.POST.get('intitule', missioncontrole.intitule)
+            missioncontrole.produitref = request.POST.get('produitref', missioncontrole.produitref)
+            missioncontrole.statut = request.POST.get('statut', str(missioncontrole.statut)) == 'True'
+            missioncontrole.save()
 
-        # --- Mise à jour des champs mission ---
-        missioncontrole.code = request.POST.get('code')
-        missioncontrole.intitule = request.POST.get('intitule')
-        missioncontrole.produitref = request.POST.get('produitref')
-        missioncontrole.statut = request.POST.get('statut') == 'True'
-        missioncontrole.save()
+            # --- Mise à jour des gammes et opérations ---
+            gammes = GammeControle.objects.filter(mission=missioncontrole)
+            changes_made = False
+            
+            for gamme in gammes:
+                intitule = request.POST.get(f'{gamme.id}-intitule', gamme.intitule)
+                # Ensure gamme title follows the format 'Gamme: [Mission Title]' if it's empty or being reset
+                if not intitule or intitule.strip() == '':
+                    intitule = f"Gamme: {missioncontrole.intitule}"
+                statut = request.POST.get(f'{gamme.id}-statut', 'False')
+                # Initialize changement_detecte at the beginning of the gamme loop
+                changement_detecte = False
 
-        # --- Mise à jour des gammes et opérations ---
-        gammes = GammeControle.objects.filter(mission=missioncontrole)
-        for gamme in gammes:
-            intitule = request.POST.get(f'{gamme.id}-intitule', gamme.intitule)
-            # Ensure gamme title follows the format 'Gamme: [Mission Title]' if it's empty or being reset
-            if not intitule or intitule.strip() == '':
-                intitule = f"Gamme: {missioncontrole.intitule}"
-            statut = request.POST.get(f'{gamme.id}-statut', 'False')
-            changement_detecte = False
-
-            if intitule != gamme.intitule or (statut == 'True') != gamme.statut:
-                changement_detecte = True
-
-            for op in gamme.operationcontrole_set.all():
-                titre = request.POST.get(f"{op.id}-titre", op.titre)
-                ordre = request.POST.get(f"{op.id}-ordre", op.ordre)
-                description = request.POST.get(f"{op.id}-description", op.description)
-                criteres = request.POST.get(f"{op.id}-criteres", op.criteres)
-
-                if titre != op.titre or str(ordre) != str(op.ordre) or description != op.description or criteres != op.criteres:
+                if intitule != gamme.intitule or (statut == 'True') != gamme.statut:
                     changement_detecte = True
 
-                # Photos existantes
-                for photo in op.photooperation_set.all():
-                    desc = request.POST.get(f"photo_{photo.id}_description", photo.description)
-                    delete = request.POST.get(f"photo_{photo.id}_DELETE", None)
-                    if desc != photo.description or delete is not None:
+                # Process existing operations
+                for op in gamme.operationcontrole_set.all():
+                    titre = request.POST.get(f"{op.id}-titre", op.titre)
+                    ordre = request.POST.get(f"{op.id}-ordre", op.ordre)
+                    description = request.POST.get(f"{op.id}-description", op.description)
+                    criteres = request.POST.get(f"{op.id}-criteres", op.criteres)
+
+                    if titre != op.titre or str(ordre) != str(op.ordre) or description != op.description or criteres != op.criteres:
                         changement_detecte = True
 
-                # Nouvelles photos dynamiques ?
-                for key in request.FILES.keys():
-                    if key.startswith(f'photo_{op.id}_'):
+                    # Process existing photos
+                    for photo in op.photooperation_set.all():
+                        desc = request.POST.get(f"photo_{photo.id}_description", photo.description)
+                        delete = request.POST.get(f"photo_{photo.id}_DELETE", None)
+                        if desc != photo.description or delete is not None:
+                            changement_detecte = True
+
+                    # Check for new dynamic photos
+                    for key in request.FILES.keys():
+                        if key.startswith(f'photo_{op.id}_'):
+                            changement_detecte = True
+                            break
+
+                # Check for new operations
+                for key in request.POST.keys():
+                    if key.startswith(f"newop_{gamme.id}_"):
                         changement_detecte = True
                         break
 
-            # Ajout d'opérations ?
-            for key in request.POST.keys():
-                if key.startswith(f"newop_{gamme.id}_"):
-                    changement_detecte = True
-                    break
+                # Check for files related to new operations
+                for key in request.FILES.keys():
+                    if key.startswith("newphoto_") or key.startswith(f"newop_{gamme.id}_") or key.startswith("formop_"):
+                        changement_detecte = True
+                        break
 
-            # Fichiers liés aux nouvelles opérations ?
-            for key in request.FILES.keys():
-                if key.startswith("newphoto_") or key.startswith(f"newop_{gamme.id}_") or key.startswith("formop_"):
-                    changement_detecte = True
-                    break
+                # Initialize new_gamme to the current gamme by default
+                new_gamme = gamme
+                
+                # Si changement → créer nouvelle version de la gamme
+                if changement_detecte:
+                    changes_made = True
+                    previous_versions = GammeControle.objects.filter(mission=missioncontrole, intitule=gamme.intitule).order_by('-version')
+                    latest_version = float(previous_versions.first().version) if previous_versions.exists() else 1.0
+                    previous_versions.update(statut=False)
+                    next_version = round(latest_version + 0.1, 1)
 
-            # Si changement → créer nouvelle version de la gamme
-            if changement_detecte:
-                previous_versions = GammeControle.objects.filter(mission=missioncontrole, intitule=gamme.intitule).order_by('-version')
-                latest_version = float(previous_versions.first().version) if previous_versions.exists() else 1.0
-                previous_versions.update(statut=False)
-                next_version = round(latest_version + 0.1, 1)
-
-                no_incident = request.POST.get(f'{gamme.id}-No_incident', gamme.No_incident)
-                new_gamme = GammeControle.objects.create(
-                    mission=missioncontrole,
-                    intitule=intitule,
-                    No_incident=no_incident,
-                    statut=(statut == 'True'),
-                    version=next_version,
-                    created_by=request.user
-                )
-
-                # Copie des opérations existantes
-                for op in gamme.operationcontrole_set.all():
-                    new_op = OperationControle.objects.create(
-                        gamme=new_gamme,
-                        titre=op.titre,
-                        ordre=op.ordre,
-                        description=op.description,
-                        criteres=op.criteres,
+                    no_incident = request.POST.get(f'{gamme.id}-No_incident', gamme.No_incident)
+                    new_gamme = GammeControle.objects.create(
+                        mission=missioncontrole,
+                        intitule=intitule,
+                        No_incident=no_incident,
+                        statut=(statut == 'True'),
+                        version=next_version,
                         created_by=request.user
                     )
+
+                # Get the maximum order value from existing operations in the new gamme
+                max_order = OperationControle.objects.filter(gamme=new_gamme).aggregate(Max('ordre'))['ordre__max'] or 0
+                
+                # First, collect all operations with their new order values
+                operations_to_update = []
+                for op in gamme.operationcontrole_set.all():
+                    # Get the new order value from the form
+                    new_order = request.POST.get(f"{op.id}-ordre")
+                    try:
+                        new_order = int(new_order) if new_order is not None else op.ordre
+                    except (ValueError, TypeError):
+                        new_order = op.ordre
+                    
+                    operations_to_update.append({
+                        'op': op,
+                        'new_order': new_order,
+                        'titre': request.POST.get(f"{op.id}-titre", op.titre),
+                        'description': request.POST.get(f"{op.id}-description", op.description),
+                        'criteres': request.POST.get(f"{op.id}-criteres", op.criteres)
+                    })
+                
+                # Sort operations by their new order to ensure consistent ordering
+                operations_to_update.sort(key=lambda x: x['new_order'])
+                
+                # Now create the operations in the new gamme with their new order values
+                current_order = 1
+                for op_data in operations_to_update:
+                    # Ensure the order is unique and sequential
+                    while OperationControle.objects.filter(gamme=new_gamme, ordre=current_order).exists():
+                        current_order += 1
+                    
+                    # Create the new operation with the updated values
+                    new_op = OperationControle.objects.create(
+                        gamme=new_gamme,
+                        titre=op_data['titre'],
+                        ordre=current_order,  # Use the sequential order
+                        description=op_data['description'],
+                        criteres=op_data['criteres'],
+                        created_by=request.user
+                    )
+                    current_order += 1
+                    
+                    # Get the original operation for copying photos
+                    op = op_data['op']
 
                     # Photos existantes copiées sauf celles à supprimer
                     for photo in op.photooperation_set.all():
                         if request.POST.get(f"photo_{photo.id}_DELETE"):
                             continue
+                            
+                        # Récupérer la description mise à jour ou utiliser l'ancienne
+                        photo_description = request.POST.get(f"photo_{photo.id}_description", photo.description)
+                        
                         PhotoOperation.objects.create(
                             operation=new_op,
                             image=photo.image,
-                            description=request.POST.get(f"photo_{photo.id}_description", photo.description)
+                            description=photo_description
                         )
 
-                    # Nouvelles photos dynamiques
+                    # Nouvelles photos dynamiques - Vérifier les deux formats
+                    # 1. Ancien format: photo_{op.id}_{i}_image
                     i = 0
                     while True:
-                        image_key = f'photo_{op.id}_{i}_image'
-                        desc_key = f'photo_{op.id}_{i}_description'
-                        if image_key in request.FILES:
+                        # Vérifier l'ancien format
+                        old_image_key = f'photo_{op.id}_{i}_image'
+                        old_desc_key = f'photo_{op.id}_{i}_description'
+                        
+                        # Vérifier le nouveau format: form-{op.id}-photo-{i}-image
+                        new_image_key = f'form-{op.id}-photo-{i}-image'
+                        new_desc_key = f'form-{op.id}-photo-{i}-description'
+                        
+                        image_key = None
+                        desc_key = None
+                        
+                        # Vérifier quel format est présent dans la requête
+                        if old_image_key in request.FILES:
+                            image_key = old_image_key
+                            desc_key = old_desc_key
+                        elif new_image_key in request.FILES:
+                            image_key = new_image_key
+                            desc_key = new_desc_key
+                        
+                        if image_key and image_key in request.FILES:
                             image = request.FILES[image_key]
                             description = request.POST.get(desc_key, '')
+                            
+                            # Journaliser pour le débogage
+                            print(f"Sauvegarde d'une nouvelle photo pour l'opération {new_op.id}")
+                            print(f"  - Nom du fichier: {image.name}")
+                            print(f"  - Taille: {image.size} octets")
+                            print(f"  - Description: {description}")
+                            
                             PhotoOperation.objects.create(
                                 operation=new_op,
                                 image=image,
@@ -153,48 +227,133 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                             )
                             i += 1
                         else:
+                            # Aucune photo supplémentaire dans aucun format
                             break
 
                 # Nouvelles opérations manuelles
                 i = 0
                 while True:
+                    # First check for the operation fields with the current index
                     titre = request.POST.get(f'newop_{gamme.id}_{i}_titre')
+                    
+                    # Debug: Log all FILES keys
+                    print(f"\nDebug - FILES keys: {list(request.FILES.keys())}")
+                    print(f"Looking for files with prefix: newop_{gamme.id}_{i}_photo_")
+                    
                     if not titre:
-                        break
-                    ordre = request.POST.get(f'newop_{gamme.id}_{i}_ordre', 0)
+                        # If no title, check if there are any files for this operation
+                        has_files = any(k.startswith(f'newop_{gamme.id}_{i}_photo_') for k in request.FILES.keys())
+                        print(f"Operation {i} - has_files: {has_files}")
+                        if not has_files:
+                            print(f"No files found for operation {i}, breaking")
+                            break
+                        # If there are files but no title, use a default title
+                        titre = f"Nouvelle opération {i+1}"
+                    
+                    # Get other operation fields
                     description = request.POST.get(f'newop_{gamme.id}_{i}_description', '')
                     criteres = request.POST.get(f'newop_{gamme.id}_{i}_criteres', '')
-
+                    
+                    # Get the next available order value for this gamme
+                    max_ordre = OperationControle.objects.filter(
+                        gamme=new_gamme
+                    ).aggregate(Max('ordre'))['ordre__max'] or 0
+                    next_ordre = max_ordre + 1
+                    
+                    print(f"Creating new operation with ordre: {next_ordre} for gamme {new_gamme.id}")
+                    
+                    # Create the new operation
                     new_op = OperationControle.objects.create(
                         gamme=new_gamme,
                         titre=titre,
-                        ordre=ordre,
+                        ordre=next_ordre,  # Use the calculated next order
                         description=description,
                         criteres=criteres,
                         created_by=request.user
                     )
 
-                    j = 0
-                    while True:
-                        key_img = f'newop_{gamme.id}_{i}_photo_{j}_image'
-                        key_desc = f'newop_{gamme.id}_{i}_photo_{j}_description'
-                        if key_img in request.FILES:
-                            PhotoOperation.objects.create(
-                                operation=new_op,
-                                image=request.FILES[key_img],
-                                description=request.POST.get(key_desc, '')
-                            )
-                            j += 1
-                        else:
-                            break
+                    # Process photos for this operation
+                    print(f"\nProcessing photos for operation {i} (gamme: {gamme.id}, new_op: {new_op.id})")
+                    print(f"All FILES keys: {list(request.FILES.keys())}")
+                    
+                    # Track processed photo indices to handle multiple file inputs
+                    processed_photos = set()
+                    
+                    # First, handle any file uploads with the expected naming pattern
+                    for file_key in request.FILES.keys():
+                        expected_prefix = f'newop_{gamme.id}_{i}_photo_'
+                        if file_key.startswith(expected_prefix) and file_key.endswith('_image'):
+                            print(f"Found matching file input: {file_key}")
+                            
+                            try:
+                                # Extract the photo index from the key (e.g., 'newop_1_0_photo_0_image' -> 0)
+                                parts = file_key.split('_')
+                                if len(parts) >= 6:  # Format: newop_<gamme>_<op>_photo_<index>_image
+                                    photo_idx = int(parts[-2])
+                                    
+                                    if photo_idx in processed_photos:
+                                        print(f"  - Photo index {photo_idx} already processed, skipping")
+                                        continue
+                                    
+                                    # Get the corresponding description
+                                    desc_key = f'newop_{gamme.id}_{i}_photo_{photo_idx}_description'
+                                    description = request.POST.get(desc_key, 'No description')
+                                    
+                                    print(f"  - Processing photo index {photo_idx}")
+                                    print(f"  - Description key: {desc_key}")
+                                    print(f"  - Description value: {description}")
+                                    
+                                    # Create the photo record
+                                    try:
+                                        print(f"  - Creating PhotoOperation for {file_key}")
+                                        photo = PhotoOperation.objects.create(
+                                            operation=new_op,
+                                            image=request.FILES[file_key],
+                                            description=description
+                                        )
+                                        print(f"  - Successfully created photo {photo.id} for operation {new_op.id}")
+                                        print(f"  - File path: {photo.image}")
+                                        print(f"  - Description: {description}")
+                                        processed_photos.add(photo_idx)
+                                    except Exception as e:
+                                        print(f"  - Error creating photo: {str(e)}")
+                                        import traceback
+                                        traceback.print_exc()
+                                else:
+                                    print(f"  - Unexpected file key format: {file_key}")
+                                    
+                            except (ValueError, IndexError) as e:
+                                print(f"  - Error parsing photo index from {file_key}: {str(e)}")
+                                import traceback
+                                traceback.print_exc()
+                                continue
+                    
+                    # Old photo processing code removed - using new method only
+                    
                     i += 1
 
+        except Exception as e:
+            # Log the error for debugging
+            import traceback
+            error_message = f"Error in MissionControleUpdateView: {str(e)}\n{traceback.format_exc()}"
+            print(error_message)
+            
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Une erreur est survenue lors de la mise à jour: {str(e)}'
+                }, status=500)
+                
+            # For non-AJAX requests, re-raise the exception
+            raise
+            
         # --- Création d'une nouvelle gamme complète ---
         gamme_intitule = request.POST.get('gamme_intitule')
         gamme_no_incident = request.POST.get('gamme_No_incident', '')
         gamme_statut = request.POST.get('gamme_statut')
-        if gamme_intitule and gamme_statut:
-            # Create the new gamme without automatically adding operations
+        
+        if gamme_intitule and gamme_statut is not None:
+            # Create the new gamme
             new_gamme = GammeControle.objects.create(
                 mission=missioncontrole,
                 intitule=gamme_intitule,
@@ -204,7 +363,78 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 version=1.0
             )
             
-            # Note: Removed automatic operation creation - operations should be added manually by the user
+            # Debug: Print all form data with more details
+            print("\n=== RAW REQUEST DATA ===")
+            print(f"Method: {request.method}")
+            print(f"Content-Type: {request.content_type}")
+            print(f"POST data keys: {list(request.POST.keys())}")
+            print(f"FILES data keys: {list(request.FILES.keys())}")
+            
+            print("\n=== FORM DATA ===")
+            for key, value in request.POST.items():
+                print(f"{key}: {value}")
+            
+            print("\n=== FILES ===")
+            for key, file_obj in request.FILES.items():
+                print(f"{key}: {file_obj.name} (size: {file_obj.size} bytes, type: {file_obj.content_type})")
+            
+            # Print all request headers for debugging
+            print("\n=== REQUEST HEADERS ===")
+            for header, value in request.META.items():
+                if header.startswith('HTTP_') or header in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
+                    print(f"{header}: {value}")
+            
+            # Process operation forms using Django formset
+            operation_formset = OperationControleFormSet(
+                request.POST, 
+                request.FILES,
+                prefix='form',
+                queryset=OperationControle.objects.none()
+            )
+            
+            print("\n=== DEBUG: Processing operation formset ===")
+            print(f"Formset is valid: {operation_formset.is_valid()}")
+            
+            if operation_formset.is_valid():
+                operations = operation_formset.save(commit=False)
+                print(f"Found {len(operations)} operations to save")
+                
+                for i, operation in enumerate(operations):
+                    operation.gamme = new_gamme
+                    operation.created_by = request.user
+                    operation.save()
+                    print(f"Saved operation {i}: {operation.titre} (ID: {operation.id})")
+                    
+                    # Process photo uploads for this operation
+                    photo_files = {}
+                    photo_descriptions = {}
+                    
+                    # Find all photo files and descriptions for this operation
+                    for key, file_obj in request.FILES.items():
+                        if key.startswith(f'form-{i}-photo-') and key.endswith('-image'):
+                            photo_index = key.split('-')[3]
+                            photo_files[photo_index] = file_obj
+                    
+                    for key, value in request.POST.items():
+                        if key.startswith(f'form-{i}-photo-') and key.endswith('-description'):
+                            photo_index = key.split('-')[3]
+                            photo_descriptions[photo_index] = value
+                    
+                    # Save photos for this operation
+                    for photo_index, file_obj in photo_files.items():
+                        description = photo_descriptions.get(photo_index, '')
+                        photo = PhotoOperation(
+                            operation=operation,
+                            image=file_obj,
+                            description=description,
+                            created_by=request.user
+                        )
+                        photo.save()
+                        print(f"  - Saved photo: {file_obj.name} (ID: {photo.id})")
+                        
+            else:
+                print("Formset errors:", operation_formset.errors)
+                print("Non-form errors:", operation_formset.non_form_errors())
 
         return redirect('Gamme:missioncontrole_list')
 
@@ -819,17 +1049,6 @@ class OperationControleDetailView(DetailView,LoginRequiredMixin):
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        form = PhotoOperationForm(request.POST, request.FILES)
-        if form.is_valid():
-            photo = form.save(commit=False)
-            photo.operation = self.object
-            photo.save()
-            return redirect('Gamme:operationcontrole_detail', pk=self.object.pk)
-        else:
-            context = self.get_context_data(photo_form=form)
-            return self.render_to_response(context)
-
-# ----------- PHOTO OPERATION -----------
 
 class PhotoOperationCreateView(LoginRequiredMixin,CreateView):
     model = PhotoOperation

@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<form method="post" enctype="multipart/form-data" id="missionForm" class="needs-validation" novalidate>
+<form method="post" enctype="multipart/form-data" id="missionForm" class="needs-validation">
   {% csrf_token %}
   <style>
     .photo-cell {
@@ -533,7 +533,7 @@
 
         <div class="card-footer d-flex justify-content-end gap-2">
           <a href="{% url 'Gamme:missioncontrole_list' %}" class="btn btn-secondary">Annuler</a>
-          <button type="button" class="btn btn-primary" onclick="submitForm()">Enregistrer</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
         </div>
       </div>
     </div>
@@ -689,30 +689,25 @@
   function addNewPhotoForm(opId) {
     const container = document.getElementById(`newPhotoFormsContainer-${opId}`);
     if (!container) return;
-
-    const photoCellContainer = container.closest('.photo-forms-container');
-    const existingPhotos = photoCellContainer.querySelectorAll('.photo-cell:not([style*="display: none"])').length;
-
-    if (existingPhotos >= 5) {
-        alert('Maximum de 5 photos par opération atteint');
-        return;
-    }
-
-    const newPhotoId = newOpPhotoCount[opId] || 0;
-    const newPhotoForm = document.createElement('div');
-    newPhotoForm.className = 'photo-cell';
-    newPhotoForm.id = `newPhoto-${opId}-${newPhotoId}`;
-    newPhotoForm.innerHTML = `
-      <input type="file" class="form-control-file" name="photo_${opId}_${newPhotoId}_image" accept="image/*" required>
-      <div class="photo-description">
-        <input type="text" class="form-control form-control-sm" name="photo_${opId}_${newPhotoId}_description" placeholder="Description" required>
+    
+    const photoIndex = container.querySelectorAll('.photo-form-group').length;
+    const formGroup = document.createElement('div');
+    formGroup.className = 'photo-form-group mb-2';
+    formGroup.innerHTML = `
+      <div class="input-group">
+        <input type="file" class="form-control form-control-sm" 
+               name="form-${opId}-photo-${photoIndex}-image" accept="image/*" required>
+        <input type="text" class="form-control form-control-sm" 
+               name="form-${opId}-photo-${photoIndex}-description" 
+               placeholder="Description (optionnelle)">
+        <button type="button" class="btn btn-outline-danger btn-sm" 
+                onclick="this.closest('.photo-form-group').remove(); updatePhotoCounter('${opId}');">
+          <i class="bi bi-x"></i>
+        </button>
       </div>
-      <button type="button" class="photo-delete-btn" onclick="this.closest('.photo-cell').remove(); updatePhotoCounter('${opId}');">
-        <i class="bi bi-x-lg"></i>
-      </button>
     `;
-    container.appendChild(newPhotoForm);
-    newOpPhotoCount[opId] = newPhotoId + 1;
+    
+    container.appendChild(formGroup);
     updatePhotoCounter(opId);
   }
 
@@ -725,34 +720,80 @@
     }
     
     const container = document.getElementById(`newOpPhotoFormsContainer-${gammeId}_${opIndex}`);
-    if (!container) return;
-
-    // Count existing photos
-    const photoCount = container.querySelectorAll('.photo-cell:not([style*="display: none"])').length;
-    if (photoCount >= 5) {
-      alert('Maximum de 5 photos par opération atteint');
+    if (!container) {
+      console.error('Container not found:', `newOpPhotoFormsContainer-${gammeId}_${opIndex}`);
       return;
     }
 
-    const key = `${gammeId}_${opIndex}`;
-    newOpPhotoCount[key] = newOpPhotoCount[key] || 0;
-
-    const index = newOpPhotoCount[key]++;
-    const inputNameImage = `newop_${gammeId}_${opIndex}_photo_${index}_image`;
-    const inputNameDesc = `newop_${gammeId}_${opIndex}_photo_${index}_description`;
-
-    const div = document.createElement('div');
-    div.className = 'card mt-2 photo-cell';
-    div.innerHTML = `
-      <div class="card-body">
-        <label class="form-label">Nouvelle photo</label>
-        <input type="file" name="${inputNameImage}" class="form-control mb-2" accept="image/*" required>
-        <input type="text" name="${inputNameDesc}" class="form-control" placeholder="Description de la photo">
-        <button type="button" class="btn btn-outline-danger btn-sm mt-2" onclick="event.stopPropagation(); this.closest('.photo-cell').remove(); updatePhotoCounters();">Supprimer cette photo</button>
-      </div>
-    `;
-    container.appendChild(div);
-    updatePhotoCounters();
+    // Find the next available photo index
+    let photoIndex = 0;
+    const usedIndices = new Set();
+    const inputs = container.querySelectorAll('input[type="file"]');
+    
+    inputs.forEach(input => {
+      const match = input.name.match(/newop_\d+_\d+_photo_(\d+)_/);
+      if (match) {
+        usedIndices.add(parseInt(match[1]));
+      }
+    });
+    
+    // Find the first available index
+    while (usedIndices.has(photoIndex)) {
+      photoIndex++;
+    }
+    
+    if (photoIndex >= 5) {
+      alert('Maximum de 5 photos par opération atteint');
+      return;
+    }
+    
+    // Create form group
+    const formGroup = document.createElement('div');
+    formGroup.className = 'photo-form-group mb-2';
+    
+    // Create the file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.className = 'form-control form-control-sm';
+    fileInput.name = `newop_${gammeId}_${opIndex}_photo_${photoIndex}_image`;
+    fileInput.accept = 'image/*';
+    fileInput.required = false;
+    
+    // Add change event for debugging
+    fileInput.addEventListener('change', function() {
+      console.log('File selected:', this.name, 'File:', this.files[0]);
+    });
+    
+    // Create description input
+    const descInput = document.createElement('input');
+    descInput.type = 'text';
+    descInput.className = 'form-control form-control-sm';
+    descInput.name = `newop_${gammeId}_${opIndex}_photo_${photoIndex}_description`;
+    descInput.placeholder = 'Description (optionnelle)';
+    
+    // Create remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-outline-danger btn-sm';
+    removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+    removeBtn.onclick = function() {
+      container.removeChild(formGroup);
+      updatePhotoCounters();
+    };
+    
+    // Create input group
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'input-group';
+    
+    // Append elements
+    inputGroup.appendChild(fileInput);
+    inputGroup.appendChild(descInput);
+    inputGroup.appendChild(removeBtn);
+    formGroup.appendChild(inputGroup);
+    container.appendChild(formGroup);
+    
+    // Debug log
+    console.log('Added photo input with name:', fileInput.name);
     
     // Return false to prevent default behavior
     return false;
@@ -770,29 +811,29 @@
     if (!container) return;
 
     // Count existing photos
-    const photoCount = container.querySelectorAll('.photo-cell:not([style*="display: none"])').length;
+    const photoCount = container.querySelectorAll('.photo-form-group').length;
     if (photoCount >= 5) {
       alert('Maximum de 5 photos par opération atteint');
       return;
     }
 
-    newOpPhotoCount[opIndex] = newOpPhotoCount[opIndex] || 0;
-
-    const index = newOpPhotoCount[opIndex]++;
-    const inputNameImage = `formop_${opIndex}_photo_${index}_image`;
-    const inputNameDesc = `formop_${opIndex}_photo_${index}_description`;
-
-    const div = document.createElement('div');
-    div.className = 'card mt-2 photo-cell';
-    div.innerHTML = `
-      <div class="card-body">
-        <label class="form-label">Nouvelle photo</label>
-        <input type="file" name="${inputNameImage}" class="form-control mb-2" accept="image/*" required>
-        <input type="text" name="${inputNameDesc}" class="form-control" placeholder="Description de la photo">
-        <button type="button" class="btn btn-outline-danger btn-sm mt-2" onclick="event.stopPropagation(); this.closest('.photo-cell').remove(); updatePhotoCounters();">Supprimer cette photo</button>
+    const formGroup = document.createElement('div');
+    formGroup.className = 'photo-form-group mb-2';
+    formGroup.innerHTML = `
+      <div class="input-group">
+        <input type="file" class="form-control form-control-sm" 
+               name="form-${opIndex}-photo-${photoCount}-image" accept="image/*" required>
+        <input type="text" class="form-control form-control-sm" 
+               name="form-${opIndex}-photo-${photoCount}-description" 
+               placeholder="Description (optionnelle)">
+        <button type="button" class="btn btn-outline-danger btn-sm" 
+                onclick="this.closest('.photo-form-group').remove(); updatePhotoCounters();">
+          <i class="bi bi-x"></i>
+        </button>
       </div>
     `;
-    container.appendChild(div);
+    
+    container.appendChild(formGroup);
     updatePhotoCounters();
     
     // Return false to prevent default behavior
@@ -847,12 +888,43 @@
     const formInputs = newForm.querySelectorAll('input, textarea, select');
     formInputs.forEach(input => {
       if (input.name) {
-        input.name = input.name.replace(/newop_\d+_\d+_/, `newop_${gammeId}_${operationCounter}_`);
+        // Handle file inputs differently to maintain file data
+        if (input.type === 'file') {
+          // For file inputs, create a new input with the correct name
+          const newInput = document.createElement('input');
+          newInput.type = 'file';
+          newInput.name = input.name.replace(/newop_\d+_\d+_/, `newop_${gammeId}_${operationCounter}_`);
+          newInput.className = input.className;
+          newInput.multiple = input.multiple;
+          newInput.accept = 'image/*';
+          
+          // Add an event listener to track when files are selected
+          newInput.addEventListener('change', function() {
+            console.log(`File selected for ${this.name}:`, this.files[0]);
+          });
+          
+          // Replace the old input with the new one
+          input.parentNode.replaceChild(newInput, input);
+        } else {
+          // For non-file inputs, update the name and clear the value
+          input.name = input.name.replace(/newop_\d+_\d+_/, `newop_${gammeId}_${operationCounter}_`);
+          if (input.type !== 'button' && input.type !== 'submit') {
+            input.value = '';
+          }
+        }
       }
-      // Clear values except for the order field
-      if (input.type !== 'button' && input.type !== 'submit') {
-        input.value = '';
-      }
+    });
+    
+    // Update any photo container IDs
+    const photoContainers = newForm.querySelectorAll('[id^="newPhotoFormsContainer-"]');
+    photoContainers.forEach(container => {
+      container.id = `newPhotoFormsContainer-${gammeId}-${operationCounter}`;
+    });
+    
+    // Update any add photo buttons
+    const addPhotoButtons = newForm.querySelectorAll('[onclick^="addNewOpPhotoForm"]');
+    addPhotoButtons.forEach(btn => {
+      btn.setAttribute('onclick', `addNewOpPhotoForm(${gammeId}, ${operationCounter}, event)`);
     });
     
     // Set the order field to the next available number
@@ -1085,24 +1157,112 @@
   };
 
   // Custom form submission handler
-  function submitForm() {
+  function submitForm(event) {
+    // Prevent default form submission if called directly
+    if (event) {
+      event.preventDefault();
+    }
+    
     const form = document.getElementById('missionForm');
-    console.log('Form submission attempted');
-    if (form.checkValidity()) {
-      console.log('Form is valid, submitting...');
-      form.submit();
-    } else {
-      console.log('Form is invalid');
-      // Show validation feedback
-      form.classList.add('was-validated');
-      // Scroll to first invalid field
-      const invalid = form.querySelector(':invalid');
-      if (invalid) {
-        invalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        invalid.focus();
+    console.log('=== Form submission started ===');
+    
+    // Create FormData object
+    const formData = new FormData(form);
+    
+    // Manually add all operation fields to ensure they're included
+    document.querySelectorAll('input[name$="-titre"], input[name$="-ordre"], textarea[name$="-description"], textarea[name$="-criteres"]').forEach(field => {
+      if (!formData.has(field.name)) {
+        formData.append(field.name, field.value);
+      }
+    });
+    
+    // Add photo descriptions
+    document.querySelectorAll('input[name^="photo_"][name$="_description"]').forEach(field => {
+      if (!formData.has(field.name)) {
+        formData.append(field.name, field.value);
+      }
+    });
+    
+    // Log all form data for debugging
+    console.log('FormData entries:');
+    for (let [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`${key}: [File] ${value.name} (${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`${key}: ${value}`);
       }
     }
+    
+    // Check form validity
+    if (!form.checkValidity()) {
+      console.log('Form is invalid');
+      form.classList.add('was-validated');
+      
+      // Find and log all invalid fields
+      const invalidFields = form.querySelectorAll(':invalid');
+      console.log(`Found ${invalidFields.length} invalid fields:`);
+      
+      invalidFields.forEach((field, index) => {
+        const fieldName = field.name || field.id || 'unknown-field';
+        console.log(`  ${index + 1}. ${fieldName}`, {
+          value: field.value,
+          validity: field.validity,
+          required: field.required,
+          pattern: field.pattern
+        });
+      });
+      
+      // Scroll to first invalid field
+      if (invalidFields.length > 0) {
+        invalidFields[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        invalidFields[0].focus();
+      }
+      
+      return false;
+    }
+    
+    console.log('Form is valid, submitting...');
+    
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enregistrement...';
+    
+    // Submit the form using fetch to handle the response
+    fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      }
+    })
+    .then(response => {
+      if (response.redirected) {
+        window.location.href = response.url;
+      } else {
+        return response.json().then(data => {
+          if (data.success) {
+            window.location.reload();
+          } else {
+            throw new Error(data.message || 'Erreur lors de la sauvegarde');
+          }
+        });
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Une erreur est survenue lors de la sauvegarde: ' + error.message);
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+    });
+    
+    return false;
   }
+  
+  // Add form submission handler
+  document.getElementById('missionForm').addEventListener('submit', submitForm);
 
   // Close zoom overlay by clicking outside image or description
   document.getElementById('photoZoom').addEventListener('click', function(e) {
