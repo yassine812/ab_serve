@@ -1,0 +1,141 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="card card-info card-outline mb-4">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="bi bi-shield-plus"></i> Ajouter un équipement de protection
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate id="epiForm">
+        {% csrf_token %}
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="row g-3">
+                <!-- Nom Field -->
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.nom.label }}{% if form.nom.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                    <input type="text" 
+                           name="{{ form.nom.name }}" 
+                           class="form-control {% if form.nom.errors %}is-invalid{% endif %}" 
+                           value="{{ form.nom.value|default:'' }}" 
+                           required>
+                    {% if form.nom.errors %}
+                        <div class="invalid-feedback">
+                            {{ form.nom.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Photo Field -->
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.photo.label }}{% if form.photo.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                    <input type="file" 
+                           name="{{ form.photo.name }}" 
+                           class="form-control {% if form.photo.errors %}is-invalid{% endif %}" 
+                           accept="image/*"
+                           required>
+                    {% if form.photo.errors %}
+                        <div class="invalid-feedback">
+                            {{ form.photo.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <small class="form-text text-muted">Formats acceptés: JPG, PNG. Taille maximale: 5 Mo</small>
+                </div>
+
+                <!-- Commentaire Field -->
+                <div class="col-12">
+                    <label class="form-label">{{ form.commentaire.label }}</label>
+                    <textarea name="{{ form.commentaire.name }}" 
+                              class="form-control {% if form.commentaire.errors %}is-invalid{% endif %}" 
+                              rows="3">{{ form.commentaire.value|default:'' }}</textarea>
+                    {% if form.commentaire.errors %}
+                        <div class="invalid-feedback">
+                            {{ form.commentaire.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'Gamme:epi_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Annuler
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Enregistrer
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Form validation
+(function () {
+    'use strict';
+    
+    // Fetch all the forms we want to apply custom Bootstrap validation styles to
+    const form = document.getElementById('epiForm');
+    
+    // Add event listener for form submission
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        form.classList.add('was-validated');
+    }, false);
+    
+    // Add live feedback for file input
+    const fileInput = form.querySelector('input[type="file"]');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const fileSize = file.size / 1024 / 1024; // in MB
+                const validTypes = ['image/jpeg', 'image/png'];
+                
+                if (!validTypes.includes(file.type)) {
+                    this.setCustomValidity('Format de fichier non supporté. Veuillez sélectionner une image JPG ou PNG.');
+                    this.reportValidity();
+                    this.value = '';
+                } else if (fileSize > 5) {
+                    this.setCustomValidity('La taille du fichier dépasse 5 Mo. Veuillez sélectionner une image plus petite.');
+                    this.reportValidity();
+                    this.value = '';
+                } else {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+    }
+})();
+</script>
+
+<style>
+/* Add any custom styles here if needed */
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.invalid-feedback {
+    display: block;
+}
+
+/* Improve file input appearance */
+.custom-file-label::after {
+    content: "Parcourir";
+}
+</style>
+{% endblock %}

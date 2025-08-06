@@ -1,0 +1,179 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<style>
+    .epi-img {
+        width: 1.2em;
+        height: 1.2em;
+        object-fit: contain;
+        margin: 0;
+        padding: 0;
+        border: none;
+        cursor: pointer;
+        vertical-align: middle;
+    }
+    .epi-img:hover {
+        transform: scale(1.1);
+    }
+    .epi-placeholder {
+        width: 1.2em;
+        height: 1.2em;
+        margin: 0;
+        padding: 0;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+    }
+    .commentaire-cell {
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="card-title">Liste des Équipements de Protection Individuelle</h3>
+            <a href="{% url 'Gamme:epi_create' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> Nouvel Équipement
+            </a>
+        </div>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="bg-secondary text-white">
+                    <tr>
+                        <th class="align-middle">Photo</th>
+                        <th class="align-middle">Nom</th>
+                        <th class="align-middle commentaire-cell">Commentaire</th>
+                        <th class="align-middle text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in object_list %}
+                    <tr>
+                        <td class="align-middle">
+                            {% if item.photo %}
+                                <img src="{{ item.photo.url }}" alt="{{ item.nom }}" 
+                                     class="epi-img" 
+                                     data-bs-toggle="modal" 
+                                     data-bs-target="#photoModal{{ item.id }}">
+                                
+                                <!-- Photo Modal -->
+                                <div class="modal fade" id="photoModal{{ item.id }}" tabindex="-1" 
+                                     aria-labelledby="photoModalLabel{{ item.id }}" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="photoModalLabel{{ item.id }}">
+                                                    {{ item.nom }}
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body text-center">
+                                                <img src="{{ item.photo.url }}" 
+                                                     alt="{{ item.nom }}" 
+                                                     class="img-fluid" 
+                                                     style="max-height: 70vh; width: auto;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="epi-placeholder">
+                                    <i class="bi bi-shield-x text-muted"></i>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td class="align-middle">{{ item.nom }}</td>
+                        <td class="align-middle commentary-cell" title="{{ item.commentaire|default:'' }}">
+                            {{ item.commentaire|truncatechars:50|default:"Aucun commentaire" }}
+                        </td>
+                        <td class="align-middle">
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="{% url 'Gamme:epi_update' item.id %}" class="btn btn-sm btn-outline-warning"
+                                   data-bs-toggle="tooltip" title="Modifier">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal{{ item.id }}"
+                                        title="Supprimer">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Delete Modal -->
+                    <div class="modal fade" id="deleteModal{{ item.id }}" tabindex="-1" 
+                         aria-labelledby="deleteModalLabel{{ item.id }}" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="deleteModalLabel{{ item.id }}">
+                                        <i class="bi bi-exclamation-triangle"></i> Confirmer la suppression
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Êtes-vous sûr de vouloir supprimer l'équipement <strong>{{ item.nom }}</strong> ?</p>
+                                    <p class="mb-0">Cette action est irréversible.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                        <i class="bi bi-x-lg"></i> Annuler
+                                    </button>
+                                    <form action="{% url 'Gamme:epi_delete' item.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="bi bi-trash"></i> Supprimer
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <div class="text-muted">
+                                <i class="bi bi-shield-x fs-1 d-block mb-2"></i>
+                                Aucun équipement de protection n'a été enregistré.
+                            </div>
+                            <a href="{% url 'Gamme:epi_create' %}" class="btn btn-primary mt-2">
+                                <i class="bi bi-plus-lg"></i> Ajouter un équipement
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card-footer clearfix">
+        <div class="float-right">
+            <small>{{ object_list.count }} équipement{{ object_list.count|pluralize }} enregistré{{ object_list.count|pluralize:"s" }}</small>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Activer les tooltips Bootstrap
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+{% endblock %}

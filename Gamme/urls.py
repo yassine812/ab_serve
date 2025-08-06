@@ -2,10 +2,11 @@ from django.urls import path
 from .views import (GammeControleCreateView, GammeControleDetailView, GammeControleListView, GammeControleUpdateView, GammeControleDeleteView, view_gamme_pdf, 
                     MissionControleCreateView, MissionControleListView, MissionControleUpdateView, MissionControleDeleteView,
                     OperationControleCreateView, OperationControleListView, OperationControleUpdateView, OperationControleDeleteView,
-                    OperationControleDetailView,
+                    OperationControleDetailView, EpiListView, EpiCreateView, EpiUpdateView, EpiDeleteView,
                     PhotoOperationCreateView, PhotoOperationListView, PhotoOperationUpdateView, PhotoOperationDeleteView,
                     UserListView, UserUpdateView, OperatorDashboardView, op_edit, UserDeleteView, DashboardView, ProfileView, 
-                    login, logoutView, RegisterView, ajouter_utilisateur, save_mission_pdf, upload_photo_defaut, delete_photo_defaut)
+                    login, logoutView, RegisterView, ajouter_utilisateur, save_mission_pdf, upload_photo_defaut, delete_photo_defaut,
+                    MoyenControleListView, MoyenControleCreateView, MoyenControleUpdateView, MoyenControleDeleteView, check_mission_code)
 app_name = 'Gamme'
 urlpatterns = [
     path('gamme/gammecontrole/create/', GammeControleCreateView.as_view(), name='gammecontrole_create'),
@@ -50,4 +51,18 @@ urlpatterns = [
     path('gamme/photo-defaut/upload/', upload_photo_defaut, name='upload_photo_defaut'),
     path('gamme/photo-defaut/<int:photo_id>/delete/', delete_photo_defaut, name='delete_photo_defaut'),
     
+    # EPI URLs
+    path('gamme/epi/', EpiListView.as_view(), name='epi_list'),
+    path('gamme/epi/create/', EpiCreateView.as_view(), name='epi_create'),
+    path('gamme/epi/update/<int:pk>/', EpiUpdateView.as_view(), name='epi_update'),
+    path('gamme/epi/delete/<int:pk>/', EpiDeleteView.as_view(), name='epi_delete'),
+    
+    # Moyens de contrôle URLs
+    path('gamme/moyens-controle/', MoyenControleListView.as_view(), name='moyencontrole_list'),
+    path('gamme/moyens-controle/create/', MoyenControleCreateView.as_view(), name='moyencontrole_create'),
+    path('gamme/moyens-controle/update/<int:pk>/', MoyenControleUpdateView.as_view(), name='moyencontrole_update'),
+    path('gamme/moyens-controle/delete/<int:pk>/', MoyenControleDeleteView.as_view(), name='moyencontrole_delete'),
+
+    # API URLs
+    path('gamme/api/check-mission-code/', check_mission_code, name='check_mission_code'),
 ]

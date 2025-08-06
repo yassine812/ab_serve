@@ -1,0 +1,143 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content-wrapper">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0">Ajouter un moyen de contrôle</h1>
+                </div><!-- /.col -->
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="{% url 'Gamme:dashboard' %}">Tableau de bord</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'Gamme:moyencontrole_list' %}">Moyens de contrôle</a></li>
+                        <li class="breadcrumb-item active">Ajouter</li>
+                    </ol>
+                </div><!-- /.col -->
+            </div><!-- /.row -->
+        </div><!-- /.container-fluid -->
+    </div>
+    <!-- /.content-header -->
+
+    <!-- Main content -->
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-8 mx-auto">
+                    <div class="card card-primary">
+                        <div class="card-header">
+                            <h3 class="card-title">Nouveau moyen de contrôle</h3>
+                        </div>
+                        <!-- /.card-header -->
+                        <!-- form start -->
+                        <form method="post" enctype="multipart/form-data" id="moyenControleForm">
+                            {% csrf_token %}
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="{{ form.nom.id_for_label }}">Nom du moyen de contrôle *</label>
+                                    {{ form.nom }}
+                                    {% if form.nom.errors %}
+                                        <div class="text-danger">{{ form.nom.errors }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="{{ form.photo.id_for_label }}">Photo</label>
+                                    <div class="custom-file">
+                                        {{ form.photo }}
+                                        <label class="custom-file-label" for="{{ form.photo.id_for_label }}">
+                                            Choisir un fichier...
+                                        </label>
+                                    </div>
+                                    {% if form.photo.errors %}
+                                        <div class="text-danger">{{ form.photo.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Formats acceptés: JPG, JPEG, PNG, GIF (max 5MB)
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="{{ form.ordre.id_for_label }}">Ordre d'affichage *</label>
+                                    {{ form.ordre }}
+                                    {% if form.ordre.errors %}
+                                        <div class="text-danger">{{ form.ordre.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Définit l'ordre d'affichage dans les listes (plus le nombre est petit, plus l'élément apparaît en haut)
+                                    </small>
+                                </div>
+                            </div>
+                            <!-- /.card-body -->
+
+                            <div class="card-footer">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Enregistrer
+                                </button>
+                                <a href="{% url 'Gamme:moyencontrole_list' %}" class="btn btn-default float-right">
+                                    <i class="fas fa-times"></i> Annuler
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                    <!-- /.card -->
+                </div>
+                <!-- /.col -->
+            </div>
+            <!-- /.row -->
+        </div><!-- /.container-fluid -->
+    </section>
+    <!-- /.content -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- bs-custom-file-input -->
+<script src="{% static 'plugins/bs-custom-file-input/bs-custom-file-input.min.js' %}"></script>
+<script>
+    $(function () {
+        // Initialize BS Custom File Input
+        bsCustomFileInput.init();
+        
+        // Form validation
+        $('#moyenControleForm').validate({
+            rules: {
+                nom: {
+                    required: true,
+                    maxlength: 100
+                },
+                ordre: {
+                    required: true,
+                    digits: true,
+                    min: 1
+                }
+            },
+            messages: {
+                nom: {
+                    required: "Ce champ est obligatoire",
+                    maxlength: "Le nom ne doit pas dépasser 100 caractères"
+                },
+                ordre: {
+                    required: "Ce champ est obligatoire",
+                    digits: "Veuillez entrer un nombre entier positif",
+                    min: "La valeur doit être supérieure à 0"
+                }
+            },
+            errorElement: 'span',
+            errorPlacement: function (error, element) {
+                error.addClass('invalid-feedback');
+                element.closest('.form-group').append(error);
+            },
+            highlight: function (element, errorClass, validClass) {
+                $(element).addClass('is-invalid');
+            },
+            unhighlight: function (element, errorClass, validClass) {
+                $(element).removeClass('is-invalid');
+            }
+        });
+    });
+</script>
+{% endblock %}

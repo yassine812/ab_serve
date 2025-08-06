@@ -17,142 +17,80 @@
 
             try {
                 console.log("Starting PDF generation...");
+                
+                // Set up the PDF with landscape orientation
                 const pdf = new jsPDF({
                     orientation: 'landscape',
-                    unit: 'pt',
-                    format: 'a4',
+                    unit: 'mm',
+                    format: 'a4'
                 });
 
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                console.log("PDF initialized. Dimensions:", pdfWidth, "x", pdfHeight);
+                // Get the page dimensions
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                console.log("PDF page dimensions:", pageWidth, "x", pageHeight, "mm");
 
-                const source = document.querySelector('.pdf-content');
-                if (!source) {
-                    throw new Error("Element .pdf-content not found.");
-                }
-                console.log("Source element found.");
-
-                const pageElements = [];
-                let currentPageContent = document.createElement('div');
-                currentPageContent.classList.add('temp-pdf-page-content');
-
-                // Iterate over direct children elements of .pdf-content
-                for (const node of Array.from(source.children)) {
-                    if (node.classList.contains('page-break')) {
-                        // If the current page content has elements, finalize it and start a new one
-                        if (currentPageContent.children.length > 0) {
-                            pageElements.push(currentPageContent);
-                        }
-                        // Start a new page for the content that follows the page-break
-                        currentPageContent = document.createElement('div');
-                        currentPageContent.classList.add('temp-pdf-page-content');
-                        // The content of the page-break div itself should be part of the new page
-                        currentPageContent.appendChild(node.cloneNode(true)); // Include the page-break div and its content
-                    } else {
-                        currentPageContent.appendChild(node.cloneNode(true));
-                    }
-                }
-                // Add the last page content if it's not empty
-                if (currentPageContent.children.length > 0) {
-                    pageElements.push(currentPageContent);
+                // Get the content to convert to PDF
+                const element = document.querySelector('.pdf-content');
+                if (!element) {
+                    throw new Error("Element .pdf-content not found");
                 }
 
-                if (pageElements.length === 0) {
-                    throw new Error("No content found to generate PDF after splitting.");
-                }
-                console.log("Number of page elements to process:", pageElements.length);
+                // Calculate scale factor to make content larger
+                const scaleFactor = 4.0; // Increased from 1.5 to 2.0 for larger content
+                
+                // Create a container for the content
+                const container = document.createElement('div');
+                container.style.position = 'absolute';
+                container.style.left = '-9999px';
+                container.style.width = (pageWidth * scaleFactor) + 'mm';
+                container.style.background = 'white';
+                container.style.padding = '0';
+                container.style.margin = '0';
+                container.style.boxSizing = 'border-box';
+                container.style.transformOrigin = 'top left';
+                container.style.transform = 'scale(' + (1/scaleFactor) + ')';
+                
+                // Clone and style the content
+                const contentClone = element.cloneNode(true);
+                contentClone.style.width = (pageWidth * scaleFactor) + 'mm';
+                contentClone.style.margin = '0';
+                contentClone.style.padding = '0';
+                contentClone.style.boxSizing = 'border-box';
+                contentClone.style.transform = 'scale(' + scaleFactor + ')';
+                contentClone.style.transformOrigin = 'top left';
+                
+                container.appendChild(contentClone);
+                document.body.appendChild(container);
 
-                for (let i = 0; i < pageElements.length; i++) {
-                    const pageElement = pageElements[i];
-                    console.log("Processing page element", i + 1);
+                // Convert the content to an image with higher scale
+                const canvas = await html2canvas(container, {
+                    scale: 4, // Increased scale for even better quality
+                    useCORS: true,
+                    logging: true,
+                    width: pageWidth * scaleFactor,
+                    windowWidth: pageWidth * scaleFactor,
+                    scrollX: 0,
+                    scrollY: 0,
+                    letterRendering: true,
+                    allowTaint: true,
+                    scale: 3 // Ensure high resolution
+                });
 
-                    // Create a temporary container to render the page element off-screen
-                    const tempRenderContainer = document.createElement('div');
-                    tempRenderContainer.style.position = 'absolute';
-                    tempRenderContainer.style.left = '-9999px';
-                    tempRenderContainer.style.width = '1200px'; // Render at a consistent high width (e.g., 1200px)
-                    tempRenderContainer.style.height = 'auto'; // Allow height to expand
-                    tempRenderContainer.style.overflow = 'visible'; // Ensure no clipping
-                    tempRenderContainer.style.background = 'white'; // Ensure background is white for rendering
-                    document.body.appendChild(tempRenderContainer);
-                    tempRenderContainer.appendChild(pageElement);
+                // Clean up
+                document.body.removeChild(container);
 
-                    // Force reflow to ensure element dimensions are calculated
-                    tempRenderContainer.offsetHeight;
-
-                    const canvas = await html2canvas(pageElement, {
-                        scale: 2, // Higher scale for better quality
-                        useCORS: true,
-                        logging: true,
-                        // Ensure html2canvas captures the full height of the element
-                        width: pageElement.offsetWidth, // Use offsetWidth/Height for more reliable dimensions
-                        height: pageElement.offsetHeight,
-                    });
-
-                    document.body.removeChild(tempRenderContainer);
-
-                    const imgData = canvas.toDataURL('image/png');
-                    const canvasWidth = canvas.width;
-                    const canvasHeight = canvas.height;
-
-                    const aspectRatio = canvasWidth / canvasHeight;
-
-                    // Target width for the content within the PDF page (e.g., 95% of PDF width)
-                    const targetContentWidthInPdf = pdfWidth * 0.95; 
-
-                    // Calculate image dimensions to fit the target width in PDF
-                    const imgPdfWidth = targetContentWidthInPdf;
-                    const imgPdfHeight = imgPdfWidth / aspectRatio;
-
-                    // Calculate horizontal offset to center the image
-                    const xOffset = (pdfWidth - imgPdfWidth) / 2;
-
-                    // If this is not the first page, add a new PDF page
-                    if (i > 0) {
-                        pdf.addPage();
-                        console.log("Added new PDF page.");
-                    }
-
-                    // If the rendered HTML page is taller than a single PDF page, split it
-                    let currentCanvasHeight = canvasHeight;
-                    let currentCanvasY = 0;
-
-                    while (currentCanvasHeight > 0) {
-                        // Calculate the height of the slice that fits one PDF page
-                        const sliceHeight = Math.min(currentCanvasHeight, canvasWidth / (pdfWidth / pdfHeight));
-                        
-                        // Create a temporary canvas for the slice
-                        const sliceCanvas = document.createElement('canvas');
-                        sliceCanvas.width = canvasWidth; // Use full canvas width
-                        sliceCanvas.height = sliceHeight; // Use calculated slice height
-                        const sliceCtx = sliceCanvas.getContext('2d');
-                        
-                        // Draw the slice from the main canvas onto the slice canvas
-                        sliceCtx.drawImage(canvas, 0, currentCanvasY, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
-
-                        const sliceImgData = sliceCanvas.toDataURL('image/png');
-
-                        // Add the slice to the PDF, centered horizontally
-                        pdf.addImage(sliceImgData, 'PNG', xOffset, 0, imgPdfWidth, pdfHeight);
-                        console.log("Image slice added to PDF.");
-
-                        currentCanvasY += sliceHeight; // Move to the next slice position
-                        currentCanvasHeight -= sliceHeight; // Reduce remaining height
-
-                        if (currentCanvasHeight > 0) {
-                            pdf.addPage(); // Add a new PDF page for the next slice
-                            console.log("Added new PDF page for slice.");
-                        }
-                    }
-                }
-
+                // Add the image to the PDF, filling the entire page
+                const imgData = canvas.toDataURL('image/png');
+                pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, '', 'FAST');
+                
+                // Save the PDF
                 pdf.save('gamme-{{ mission.code }}.pdf');
-                console.log("PDF saved successfully.");
+                console.log("PDF saved successfully in landscape mode");
 
             } catch (error) {
-                console.error('Error generating PDF:', error); // Log the actual error
-                alert('Erreur lors de la génération du PDF. Veuillez réessayer. Détails dans la console.'); // Inform user to check console
+                console.error('Error generating PDF:', error);
+                alert('Erreur lors de la génération du PDF. Veuillez réessayer. Détails dans la console.');
             } finally {
                 downloadBtn.disabled = false;
                 downloadBtn.innerHTML = originalText;
@@ -162,6 +100,10 @@
 
     <title>Gamme PDF</title>
     <style>
+        @page {
+            size: landscape;
+            margin: 0;
+        }
         /* Print-specific styles */
         .print-version {
             width: 100% !important;
@@ -218,14 +160,13 @@
         body {
             height: 100%;
             margin: 0;
-            padding: 20px;
             background-color: #f0f2f5;
         }
         .pdf-container {
             background: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            margin: 0 auto;
-            max-width: 1200px;
+            box-shadow: none;
+            margin: 0;
+            width: 100%;
             position: relative;
         }
         .pdf-toolbar {
@@ -237,7 +178,6 @@
             align-items: center;
         }
         .pdf-content {
-            padding: 20px;
             overflow-y: auto;
             max-height: calc(100vh - 100px);
         }
@@ -364,14 +304,14 @@
     <!-- HEADER -->
     <table style="width: 100%; table-layout: fixed; margin: 0 auto;">
         <tr style="height: 40px;">
-            <td rowspan="2" class="first-col" style="height: 100%;">
+            <td rowspan="2" class="first-col" style="height: 100%; width: 120px; min-width: 120px; max-width: 120px;">
                 <div style="display: flex; align-items: center; height: 100%;">
                     <img src="{% static 'logo.jpg' %}" style="max-width: 100%; max-height: 100%;">
                 </div>
             </td>
-            <td class="second-col">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 1.3em;">
-                    <div style="padding-left: 120px;"><strong>GAMME DE TRAVAIL</strong></div>
+            <td class="second-col" style="background-color: #d0e1f3;">
+                <div style=" display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 1.3em;">
+                    <div style="text-align: left; padding-left: 10px;"><strong>GAMME DE TRAVAIL</strong></div>
                     <div style="padding-right: 30px;"><strong>n° clt 001</strong></div>
                 </div>
             </td>
@@ -382,13 +322,35 @@
                     </div>
                     <div style="flex: 1; display: flex; align-items: center; padding: 5px;">
                         <div style="width: 100%;">
-                            <div style="display: grid; grid-template-columns: auto 1fr 1fr; gap: 5px 10px; align-items: center;">
-                                <div>S</div>
-                                <div><input type="checkbox"> Oui</div>
-                                <div><input type="checkbox"> Non</div>
-                                <div>R</div>
-                                <div><input type="checkbox"> Oui</div>
-                                <div><input type="checkbox"> Non</div>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <!-- S Row -->
+                                <div style="display: flex; align-items: center; gap: 20px;">
+                                    <div style="display: flex; gap: 20px;">
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <input type="checkbox" {% if gammecontrole.picto_s %}checked{% endif %} disabled>
+                                            Oui
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <input type="checkbox" {% if not gammecontrole.picto_s %}checked{% endif %} disabled>
+                                            Non
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- R Row -->
+                                <div style="display: flex; align-items: center; gap: 20px;">
+                                    <div style="display: flex; gap: 20px;">
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <input type="checkbox" {% if gammecontrole.picto_r %}checked{% endif %} disabled>
+                                            Oui
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <input type="checkbox" {% if not gammecontrole.picto_r %}checked{% endif %} disabled>
+                                            Non
+                                        </div>
+                                    </div>
+                                </div>    
+                                </div>
+                                <input type="hidden" id="picto_s_r_value" name="picto_s_r_value" value="{{ gammecontrole.picto_s_r|default:'' }}">
                             </div>
                         </div>
                     </div>
@@ -425,7 +387,7 @@
                         <div style="width: 50%; margin-left: auto; height: 1px; background-color: black;"></div>
                         <div style="display: grid; grid-template-columns: 1fr auto; padding: 0 10px; font-size: 0.9em;">
                             <span style="text-align: left;">Concerne :</span>
-                            <span>Démonstration Clt</span>
+                            <span>{{ gammecontrole.commantaire|default:'' }}</span>
                         </div>
                     </div>
                 </div>
@@ -433,7 +395,7 @@
         </tr>
         <tr class="smaller-row">
             <td class="second-col" style="text-align: left; font-size: 1.2em; padding-left: 40px;">
-                <strong>SITE :    &nbsp;&nbsp;AB Serve - Woippy</strong>
+                <strong>SITE :    &nbsp;&nbsp;{{mission.section}}</strong>
             </td>
         </tr>
     </table>
@@ -442,16 +404,16 @@
     <table style="width: 100%; table-layout: fixed; margin: 0; border-collapse: collapse; border-top: none;">
         <tr>
             <td style="border: 1px solid #000; border-top: none; padding: 5px 10px; text-align: left; width: 12%;">
-                <div style="font-weight: bold; white-space: nowrap;">Client : &nbsp;Démonstration</div>
+                <div style="font-weight: bold; white-space: nowrap;">client : &nbsp;{{mission.client}}</div>
             </td>
             <td style="border: 1px solid #000; border-top: none; padding: 5px; text-align: center; width: 25%;">
-                <div style="font-weight: bold;">Référence pièce :&nbsp;{{mission.produitref}}</div>
+                <div style="font-weight: bold;">Référence pièce :&nbsp;{{mission.reference}}</div>
             </td>
             <td style="border: 1px solid #000; border-top: none; padding: 5px; text-align: center; width: 25%;">
                 <div style="font-weight: bold;"> Désignation :&nbsp; {{mission.intitule}}</div>
             </td>
             <td style="border: 1px solid #000; border-top: none; padding: 5px; text-align: center; width: 15%;">
-                <div style="font-weight: bold; text-align: right; padding-right: 15px;">Temps alloué :&nbsp;&nbsp;&nbsp; 5000/jour</div>
+                <div style="font-weight: bold; text-align: right; padding-right: 15px;">Temps alloué :&nbsp;&nbsp;&nbsp; {{ temps_alloue|default:'' }} &nbsp;/jour</div>
             </td>
         </tr>
     </table>
@@ -464,7 +426,7 @@
                 <tr style="background-color: #e6f2ff; height: 60px;">
                     <th style="width: 60px; min-width: 60px; max-width: 60px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word;">N° OP</th>
                     <th style="width: 200px; min-width: 200px; max-width: 200px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word;">OPÉRATION</th>
-                    <th style="width: 250px; min-width: 250px; max-width: 250px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word; white-space: normal;">Moyens de Contrôle & Fréquence</th>
+                    <th style="width: 250px; min-width: 100px; max-width: 60px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word; white-space: normal;">Moyens de Contrôle & Fréquence</th>
                     <th style="width: 400px; min-width: 400px; max-width: 400px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word; white-space: normal;">SCHEMAS, PHOTOS, DESCRIPTION</th>
                 </tr>
 
@@ -472,7 +434,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">1</td>  
                     <td style="text-align: center;">{{ operations.1.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.1.frequence }} {{ operations.1.moyen_controle }}</td>
                     <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 135px;">
                         {% for photo in operations.1.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
@@ -482,7 +444,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">2</td>
                     <td style="text-align: center;">{{ operations.2.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.2.frequence }} {{ operations.2.moyen_controle }}</td>
                     <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
                         {% for photo in operations.2.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
@@ -492,7 +454,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">3</td>
                     <td style="text-align: center;">{{ operations.3.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.3.frequence }} {{ operations.3.moyen_controle }}</td>
                     <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
                         {% for photo in operations.3.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
@@ -502,7 +464,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">4</td>
                     <td style="text-align: center;">{{ operations.4.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.4.frequence }} {{ operations.4.moyen_controle }}</td>
                     <td style="vertical-align: top; min-height: 135px;">
                         {% for photo in operations.4.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
@@ -512,7 +474,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">5</td>
                     <td style="text-align: center;">{{ operations.5.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.5.frequence }} {{ operations.5.moyen_controle }}</td>
                     <td style="vertical-align: top;">
                         {% for photo in operations.5.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
@@ -522,7 +484,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">6</td>
                     <td style="text-align: center;">{{ operations.6.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.6.frequence }} {{ operations.6.moyen_controle }}</td>
                     <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
                         {% for photo in operations.6.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
@@ -532,7 +494,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">7</td>
                     <td style="text-align: center;">{{ operations.7.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.7.frequence }} {{ operations.7.moyen_controle }}</td>
                     <td style="min-height: 135px;">
                         {% for photo in operations.7.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
@@ -542,7 +504,7 @@
                 <tr style="height: 70px;">
                     <td style="text-align: center;">8</td>
                     <td style="text-align: center;">{{ operations.8.description }}</td>
-                    <td></td>
+                    <td style="text-align: center;">{{ operations.8.frequence }} {{ operations.8.moyen_controle }}</td>
                     <td style="min-height: 135px;">
                         {% for photo in operations.8.photos %}
                             <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
@@ -561,30 +523,48 @@
                                                       Le point 8 peut-être utilisé ponctuellement pour optimiser la répartition des contrôles.       
                                                          </div>
                                                         </td>   
-                                                           <td>     
-                                                                   <img src="/static/8.jpg" alt="8" style="width: 100px; height: auto; display: block;">  
-                                                          </td> 
-                                                          <td>   
-            
-                                                            <img src="/static/9.jpg" alt="8" style="width: 100px; height: auto; display: block;">       
-                                                         </td>       
-                                                          <td>       
-                                                               <img src="/static/10.jpg" alt="8" style="width: 100px; height: auto; display: block;">  
-                                                                  </td>  
-                                                                        <td>  
-                                                                              <img src="/static/11.jpg" alt="8" style="width: 100px; height: auto; display: block;">        </td>        <td></td>    </tr>    <!-- APPROVAL ROW -->    <tr style="background-color: #e6f2ff; font-weight: bold; height: 90px;">  
+                                                           {% if epis %}
+                                                           {% for epi in epis|slice:":4" %}
+                                                           <td style="text-align: center; vertical-align: middle; padding: 5px;">
+                                                               {% if epi.photo %}
+                                                                   <img src="{{ epi.photo.url }}" alt="{{ epi.nom }}" style="max-width: 100px; max-height: 80px; display: block; margin: 0 auto;">
+                                                               {% else %}
+                                                                   <div style="height: 80px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border: 1px dashed #ccc;">
+                                                                       Pas de photo
+                                                                   </div>
+                                                               {% endif %}
+                                                               
+                                                           </td>
+                                                           {% endfor %}
+                                                           {% else %}
+                                                           <td colspan="4" style="text-align: center; vertical-align: middle; padding: 10px; color: #666; font-style: italic;">
+                                                               Aucun EPI requis
+                                                           </td>
+                                                           {% endif %}
+                                                           <td></td>
+                                                       </tr>
+                                                       <!-- APPROVAL ROW -->
+                                                       <tr style="background-color: #e6f2ff; font-weight: bold; height: 90px;">
                                                                                       <td rowspan="2" style="width: 30px; text-align: center; vertical-align: middle; padding: 0; border: 1px solid #000; background-color: #e6f2ff;">            <div style="transform: rotate(-90deg); transform-origin: center; white-space: nowrap; font-size: 16px; font-weight: bold; width: 100px; margin-left: -35px;"> APPROBATION            </div>
                                                                                             </td>  
                                                                                                   <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 14px; vertical-align: middle; font-weight: bold;">Rédacteur AB Serve</td>
                                                                                                           <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 14px; vertical-align: middle; font-weight: bold;"> Validation AB Serve 
                                                                                                             (Resp. Site / Resp. Régional ) 
-                                                                                                        </td> 
-                                                                                                                 <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 14px; vertical-align: middle; font-weight: bold;"> Validation CLIENT</td>  
-                                                                                                                   <td>Chaussures de sécurité</td>   
-                                                                                                                    <td>Gants</td>
-                                                                                                                     <td>Protections auditives</td> 
-                                                                                                                        <td>Lunette de protection</td> 
-                                                                                                                           <td> Autres</td>
+                                                                                                        </td>                                                                                                                  <td style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 14px; vertical-align: middle; font-weight: bold;"> Validation CLIENT</td>
+                                                                                                                  {% if epis %}
+                                                                                                                    {% for epi in epis %}
+                                                                                                                    <td style="text-align: center; vertical-align: middle; padding: 5px;">
+                                                                                                                       
+                                                                                                                        <div style="text-align: center; font-size: 12px; margin-top: 5px; word-break: break-word; min-height: 30px; display: flex; align-items: center; justify-content: center;">
+                                                                                                                            {{ epi.nom }}
+                                                                                                                        </div>
+                                                                                                                    </td>
+                                                                                                                    {% endfor %}
+                                                                                                                  {% else %}
+                                                                                                                    <td colspan="4" style="text-align: center; vertical-align: middle; padding: 10px; color: #666; font-style: italic;">
+                                                                                                                        Aucun EPI requis
+                                                                                                                        </td>
+                                                                                                                    {% endif %}
                                                                                                                         </tr>    
                                                                                                                         <tr style="height: 80px;"> 
                                                                                                                                    <td style="border: 1px solid #000; padding: 8px; font-size: 12px; line-height: 1.4; vertical-align: top; text-align: left;">
@@ -606,10 +586,21 @@
                                                                                                                                                                       <div style="margin-bottom: 3px;"><strong>DATE :</strong>&nbsp;&nbsp; {% now "d/m/Y" %}</div> 
                                                                                                                                                                                 <div><strong>VISA :</strong>&nbsp;&nbsp; Électronique</div> 
                                                                                                                                                                                    </td>      
-                                                                                                                                                                                     <td>X</td> 
-                                                                                                                                                                                           <td>X</td> 
-                                                                                                                                                                                                  <td>NA</td> 
-                                                                                                                                                                                                         <td>NA</td>  
+                                                                                                                                                                                     {% if epis %}
+                                                                                                                                                                                       {% for epi in epis|slice:":4" %}
+                                                                                                                                                                                       <td style="text-align: center; vertical-align: middle;">X</td>
+                                                                                                                                                                                       {% endfor %}
+                                                                                                                                                                                       {% for i in "1234" %}
+                                                                                                                                                                                         {% if forloop.counter > epis|length %}
+                                                                                                                                                                                         <td style="text-align: center; vertical-align: middle;">NA</td>
+                                                                                                                                                                                         {% endif %}
+                                                                                                                                                                                       {% endfor %}
+                                                                                                                                                                                     {% else %}
+                                                                                                                                                                                       <td>NA</td>
+                                                                                                                                                                                       <td>NA</td>
+                                                                                                                                                                                       <td>NA</td>
+                                                                                                                                                                                       <td>NA</td>
+                                                                                                                                                                                     {% endif %}
                                                                                                                                                                                                             <td></td>  
                                                                                                                                                                                                           </tr>
                 </tbody>
@@ -622,70 +613,46 @@
                 <div style="text-align: center; font-weight: bold;">Identification, marquage, traçabilité</div>
             </div>
             <div style="padding: 10px; text-align: center; border-bottom: 1px solid #000;">
-                <strong>Etiquette verte "AB Serve Conforme" sur boîte</strong>
+                <strong>{{gammecontrole.commantaire_identification}}</strong>
             </div>
             <div style="height: 60px; background-color: #e6f2ff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #000; padding: 5px;">
                 <div style="text-align: center; font-weight: bold;">En cas de détection de non conformité</div>
             </div>
             <div style="padding: 10px; color: red; border-bottom: 1px solid #000;">
-                <p style="margin: 2px 0;">- Les pièces non conformes sont à identifier et à isoler.</p>
-                <p style="margin: 2px 0;">- Les pièces tombées doivent être écartées et identifiées.</p>
-                <p style="margin: 2px 0;">- Prévenez votre responsable pour prise de décision.</p>
-            </div>
+                <p style="margin: 2px 0;">{{ gammecontrole.commantaire_traitement_non_conforme }}</p>
+                {% if gammecontrole.photo_traitement_non_conforme %}
+                    <div style="margin-top: 10px; text-align: center;">
+                        <img src="{{ gammecontrole.photo_traitement_non_conforme.url }}" alt="Photo de non-conformité" style="max-width: 100%; max-height: 200px; object-fit: contain;">
+                    </div>
+                {% endif %}
+                            </div>
             <div style="height: 60px; background-color: #e6f2ff; display: flex; align-items: center; justify-content: center; padding: 5px;">
                 <div style="text-align: center; font-weight: bold;">Légende des pictogrammes</div>
             </div>
-            <div style="padding: 5px; position: relative; height: 100%;">
+            <div style="padding: 5px; position: relative; min-height: 100%;">
                 <div style="position: absolute; top: 0; bottom: 0; left:40%; border-left: 1px solid #000;"></div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <img src="{% static '1.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                {% if unique_moyens %}
+                    {% for moyen in unique_moyens %}
+                    <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000; min-height: 80px;">
+                        <div style="flex: 1; text-align: center; padding: 5px 0; height: 100%; display: flex; align-items: center; justify-content: center;">
+                            {% if moyen.photo %}
+                                <img src="{{ moyen.photo.url }}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto; object-fit: contain;" alt="{{ moyen.nom|default:'Moyen de contrôle' }}">
+                            {% else %}
+                                <div style="height: 60px; display: flex; align-items: center; justify-content: center; width: 100%;">
+                                    <span>Pas de photo</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div style="flex: 1; text-align: center; padding: 5px 10px; word-break: break-word; display: flex; align-items: center; justify-content: center; height: 100%;">
+                            {{ moyen.nom|default:"Moyen sans nom" }}
+                        </div>
                     </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">POINT CRITIQUE</div>
-                </div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <img src="{% static '2.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
+                    {% endfor %}
+                {% else %}
+                    <div style="text-align: center; padding: 20px; color: #666; font-style: italic;">
+                        Aucun moyen de contrôle défini
                     </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">Contrôle visuel</div>
-                </div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <img src="{% static '3.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">Contrôle tactile</div>
-                </div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <img src="{% static '4.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">Contrôle outil</div>
-                </div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <img src="{% static '5.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">Chemin de contrôle</div>
-                </div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <img src="{% static '6.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">Départ chemin</div>
-                </div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <img src="{% static '7.jpg' %}" style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;">
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;"> Fin chemin</div>
-                </div>
-                <div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #000;">
-                    <div style="flex: 1; text-align: center; padding: 5px 0;">
-                        <div style="max-width: 100%; max-height: 60px; display: block; margin: 0 auto;"></div>
-                    </div>
-                    <div style="flex: 1; text-align: center; padding: 5px 0;"> </div>
-                </div>
-                
+                {% endif %}
             </div>
         </div>
     </div>

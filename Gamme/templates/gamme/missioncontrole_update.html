@@ -169,7 +169,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Référence Produit</label>
-              <input type="text" class="form-control" name="produitref" value="{{ missioncontrole.produitref }}">
+              <input type="text" class="form-control" name="reference" value="{{ missioncontrole.reference }}">
             </div>
             <div class="col-md-6">
               <label class="form-label">Statut</label>
@@ -177,6 +177,18 @@
                 <option value="True" {% if missioncontrole.statut %}selected{% endif %}>Actif</option>
                 <option value="False" {% if not missioncontrole.statut %}selected{% endif %}>Inactif</option>
               </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Section</label>
+              <input type="text" class="form-control" name="section" value="{{ missioncontrole.section|default_if_none:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Client</label>
+              <input type="text" class="form-control" name="client" value="{{ missioncontrole.client|default_if_none:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Désignation</label>
+              <input type="text" class="form-control" name="designation" value="{{ missioncontrole.designation|default_if_none:'' }}">
             </div>
           </div>
           
@@ -266,10 +278,144 @@
                             <option value="False" {% if not gamme.statut %}selected{% endif %}>Inactif</option>
                           </select>
                         </div>
+                        <div class="mb-3">
+                          <label class="form-label">Commentaire</label>
+                          <textarea name="{{ gamme.id }}-commentaire" class="form-control">{{ gamme.commantaire|default:'' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Temps alloué</label>
+                          <input type="number" name="{{ gamme.id }}-temps_alloue" class="form-control" value="{{ gamme.Temps_alloué|default:'' }}">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Commentaire d'identification</label>
+                          <textarea name="{{ gamme.id }}-commentaire_identification" class="form-control">{{ gamme.commantaire_identification|default:'' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Commentaire traitement non conforme</label>
+                          <textarea name="{{ gamme.id }}-commentaire_non_conforme" class="form-control">{{ gamme.commantaire_traitement_non_conforme|default:'' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Photo traitement non conforme</label>
+                          <input type="file" name="{{ gamme.id }}-photo_non_conforme" class="form-control">
+                          {% if gamme.photo_traitement_non_conforme %}
+                            <div class="mt-2">
+                              <span>Photo actuelle : </span>
+                              <a href="{{ gamme.photo_traitement_non_conforme.url }}" target="_blank">
+                                <img src="{{ gamme.photo_traitement_non_conforme.url }}" alt="Photo non conforme" style="max-height: 100px;">
+                              </a>
+                            </div>
+                          {% endif %}
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Picto</label>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="{{ gamme.id }}-picto_s" id="pictoS{{ gamme.id }}" {% if gamme.picto_s %}checked{% endif %}>
+                            <label class="form-check-label" for="pictoS{{ gamme.id }}">S</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="{{ gamme.id }}-picto_r" id="pictoR{{ gamme.id }}" {% if gamme.picto_r %}checked{% endif %}>
+                            <label class="form-check-label" for="pictoR{{ gamme.id }}">R</label>
+                          </div>
+                        </div>
+
+                        <!-- Tables Container -->
+                        <div class="row mb-3">
+                          <!-- EPI Table -->
+                          <div class="col-md-6 mb-3 mb-md-0">
+                            <h6>Équipements de Protection Individuelle (EPI)</h6>
+                            <div class="table-responsive">
+                              <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                  <tr>
+                                    <th>Sélectionner</th>
+                                    <th>Équipement</th>
+                                    <th>Image</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {% if epis %}
+                                    {% for epi_item in epis %}
+                                    <tr>
+                                      <td class="align-middle" style="width: 50px; text-align: center;">
+                                        <input type="checkbox" 
+                                               name="gamme_{{ gamme.id }}_epi_{{ epi_item.id }}" 
+                                               value="on"
+                                               class="form-check-input"
+                                               {% if epi_item in gamme.epis.all %}checked{% endif %}>
+                                      </td>
+                                      <td class="align-middle">
+                                        {{ epi_item.nom }}
+                                      </td>
+                                      <td class="align-middle" style="width: 100px;">
+                                        {% if epi_item.photo %}
+                                        <img src="{{ epi_item.photo.url }}" alt="{{ epi_item.nom }}" class="img-thumbnail" style="max-width: 80px; max-height: 60px;">
+                                        {% else %}
+                                        <span class="text-muted">Aucune image</span>
+                                        {% endif %}
+                                      </td>
+                                    </tr>
+                                    {% endfor %}
+                                  {% else %}
+                                    <tr>
+                                      <td colspan="3" class="text-center">Aucun EPI n'a été enregistré.</td>
+                                    </tr>
+                                  {% endif %}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <!-- Moyens de contrôle Table -->
+                          <div class="col-md-6">
+                            <h6>Moyens de contrôle</h6>
+                            <div class="table-responsive">
+                              <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                  <tr>
+                                    <th>Sélectionner</th>
+                                    <th>Moyen de contrôle</th>
+                                    <th>Image</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {% if moyens_controle %}
+                                    {% for moyen in moyens_controle %}
+                                    <tr>
+                                      <td class="align-middle" style="width: 50px; text-align: center;">
+                                        <input type="checkbox" 
+                                               name="gamme_{{ gamme.id }}_moyen_controle_{{ moyen.id }}" 
+                                               value="on"
+                                               class="form-check-input"
+                                               {% if moyen in gamme.moyens_controle.all %}checked{% endif %}>
+                                      </td>
+                                      <td class="align-middle">
+                                        {{ moyen.nom }}
+                                      </td>
+                                      <td class="align-middle" style="width: 100px;">
+                                        {% if moyen.photo %}
+                                        <img src="{{ moyen.photo.url }}" alt="{{ moyen.nom }}" class="img-thumbnail" style="max-width: 80px; max-height: 60px;">
+                                        {% else %}
+                                        <span class="text-muted">Aucune image</span>
+                                        {% endif %}
+                                      </td>
+                                    </tr>
+                                    {% endfor %}
+                                  {% else %}
+                                    <tr>
+                                      <td colspan="3" class="text-center">Aucun moyen de contrôle n'a été enregistré.</td>
+                                    </tr>
+                                  {% endif %}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  
+                  
                   <!-- Table des opérations -->
                   <div class="collapse mb-3" id="operationsGamme{{ gamme.id }}">
                     <div class="table-responsive">
@@ -277,53 +423,66 @@
                         <thead class="table-light">
                           <tr>
                             <th style="width: 15%;">Titre</th>
-                            <th style="width: 10%;">Ordre</th>
-                            <th style="width: 20%;">Description</th>
-                            <th style="width: 20%;">Critères</th>
+                            <th style="width: 5%;">Ordre</th>
+                            <th style="width: 15%;">Description</th>
+                            <th style="width: 15%;">Critères</th>
+                            <th style="width: 10%;">Fréquence</th>
+                            <th style="width: 10%;">Moyen de contrôle</th>
                             <th style="width: 20%;">Photos</th>
-                            <th style="width: 15%;">Actions</th>
+                            <th style="width: 20%;">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {% for op in gamme.operationcontrole_set.all %}
-                          <tr data-op-id="{{ op.id }}">
-                            <td>
-                              <input type="text" class="form-control form-control-sm" name="{{ op.id }}-titre" value="{{ op.titre }}">
-                            </td>
-                            <td>
-                              <input type="number" class="form-control form-control-sm" name="{{ op.id }}-ordre" value="{{ op.ordre }}">
-                            </td>
-                            <td>
-                              <textarea class="form-control form-control-sm" rows="2" name="{{ op.id }}-description">{{ op.description }}</textarea>
-                            </td>
-                            <td>
-                              <textarea class="form-control form-control-sm" rows="2" name="{{ op.id }}-criteres">{{ op.criteres }}</textarea>
-                            </td>
-                            <td>
-                              <div class="photo-forms-container d-flex flex-wrap gap-2 justify-content-center">
-                                {% for photo in op.photooperation_set.all %}
-                                <div class="photo-cell" id="photoCell-{{ photo.id }}">
-                                  <img src="{{ photo.image.url }}" class="operation-photo" alt="Photo de l'opération" onclick="zoomPhoto(this)">
-                                  <div class="photo-description">
-                                    <input type="text" class="form-control form-control-sm" name="photo_{{ photo.id }}_description" value="{{ photo.description }}">
+                          {% for op in gamme.operations.all %}
+                            {% if op.gamme_id == gamme.id %}
+                            <tr data-op-id="{{ op.id }}">
+                              <td>
+                                <input type="text" class="form-control form-control-sm" name="{{ op.id }}-titre" value="{{ op.titre }}">
+                              </td>
+                              <td>
+                                <input type="number" class="form-control form-control-sm" name="{{ op.id }}-ordre" value="{{ op.ordre }}">
+                              </td>
+                              <td>
+                                <textarea class="form-control form-control-sm" rows="2" name="{{ op.id }}-description">{{ op.description }}</textarea>
+                              </td>
+                              <td>
+                                <textarea class="form-control form-control-sm" rows="2" name="{{ op.id }}-criteres">{{ op.criteres }}</textarea>
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" name="{{ op.id }}-frequence" value="{{ op.frequence|default:'' }}">
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" name="{{ op.id }}-moyen_controle" value="{{ op.moyen_controle|default:'' }}" placeholder="Entrez le moyen de contrôle">
+                              </td>
+                              <td>
+                                <div class="photo-forms-container d-flex flex-wrap gap-2 justify-content-center">
+                                  {% for photo in op.photooperation_set.all %}
+                                  <div class="photo-cell" id="photoCell-{{ photo.id }}">
+                                    <img src="{{ photo.image.url }}" class="operation-photo" alt="Photo de l'opération" onclick="zoomPhoto(this)">
+                                    <div class="photo-description">
+                                      <input type="text" class="form-control form-control-sm" name="photo_{{ photo.id }}_description" value="{{ photo.description }}">
+                                    </div>
+                                    <button type="button" class="photo-delete-btn" onclick="markPhotoDelete('{{ photo.id }}', this)">
+                                      <i class="bi bi-x-lg"></i>
+                                    </button>
                                   </div>
-                                  <button type="button" class="photo-delete-btn" onclick="markPhotoDelete('{{ photo.id }}', this)">
-                                    <i class="bi bi-x-lg"></i>
+                                  {% endfor %}
+                                  <div id="newPhotoFormsContainer-{{ op.id }}"></div>
+                                  <button type="button" class="photo-add-btn" onclick="addNewPhotoForm('{{ op.id }}')" id="addPhotoBtn{{ op.id }}">
+                                    <i class="bi bi-plus-lg"></i>
                                   </button>
                                 </div>
-                                {% endfor %}
-                                <div id="newPhotoFormsContainer-{{ op.id }}"></div>
-                                <button type="button" class="photo-add-btn" onclick="addNewPhotoForm('{{ op.id }}')" id="addPhotoBtn{{ op.id }}">
-                                  <i class="bi bi-plus-lg"></i>
+                              </td>
+                              <td class="text-nowrap">
+                                <button type="button" class="btn btn-outline-danger btn-sm mb-2" onclick="removeOperation('{{ op.id }}', event)">
+                                  <i class="bi bi-trash"></i> Supprimer
                                 </button>
-                              </div>
-                            </td>
-                            <td>
-                              <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeOperation('{{ op.id }}', event)">
-                                <i class="bi bi-trash"></i> Supprimer
-                              </button>
-                            </td>
-                          </tr>
+                                
+                              </td>
+                            </tr>
+                            <!-- Moyens de contrôle row -->
+                          
+                            {% endif %}
                           {% endfor %}
                         </tbody>
                       </table>
@@ -356,6 +515,16 @@
                             <label class="form-label">Critères</label>
                             <textarea class="form-control" rows="3" name="newop_{{ gamme.id }}_0_criteres"></textarea>
                           </div>
+                          <div>
+                            <label>Moyens de controle</label>
+                            <input type="text" class="form-control" name="newop_{{ gamme.id }}_0_moyen_controle">
+
+                          </div>
+                          <div>
+                            <label class="form-label">Fréquence</label>
+                            <input type="number" class="form-control" name="newop_{{ gamme.id }}_0_frequence">
+                          </div>
+                          
                         </div>
 
                         <!-- Container new photos for this new op -->
@@ -372,82 +541,168 @@
 
                   <!-- Table opérations -->
                   <div class="collapse" id="tableOperationsGamme{{ gamme.id }}">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th>Titre</th>
-                          <th>Ordre</th>
-                          <th>Description</th>
-                          <th>Critères</th>
-                          <th>Photo</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for op in gamme.operationcontrole_set.all %}
-                        <tr data-op-id="{{ op.id }}">
-                          <td>{{ op.titre }}</td>
-                          <td>{{ op.ordre }}</td>
-                          <td>{{ op.description }}</td>
-                          <td>{{ op.criteres }}</td>
-                          <td>
-                            {% if op.photooperation_set.all %}
-                              {% for photo in op.photooperation_set.all %}
-                              <div class="photo-cell">
-                                <img src="{{ photo.image.url }}" class="operation-photo" alt="Photo de l'opération" onclick="zoomPhoto(this)">
-                                <div class="photo-description">{{ photo.description }}</div>
+                    <div class="table-responsive">
+                      <table class="table table-striped table-bordered">
+                        <thead class="table-light">
+                          <tr>
+                            <th style="width: 70px;">Ordre</th>
+                            <th>Titre</th>
+                            <th>Description</th>
+                            <th>Critères</th>
+                            <th>Fréquence</th>
+                            <th>Moyen de contrôle</th>
+                            <th>Photos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for op in gamme.operations.all %}
+                          <tr>
+                            <td class="text-center">
+                              {{ op.ordre|default:'-' }}
+                            </td>
+                            <td>{{ op.titre }}</td>
+                            <td>{{ op.description }}</td>
+                            <td>{{ op.criteres }}</td>
+                            <td>{{ op.frequence }}</td>
+                            <td>
+                              {% if op.moyen_controle %}
+                                {{ op.moyen_controle }}
+                              {% else %}
+                                <span class="text-muted">Aucun moyen de contrôle</span>
+                              {% endif %}
+                            </td>
+                            <td>
+                              {% if op.photooperation_set.all %}
+                                <div class="d-flex flex-wrap gap-2">
+                                  {% for photo in op.photooperation_set.all %}
+                                    <div class="position-relative" style="width: 60px; height: 60px;">
+                                      <img src="{{ photo.image.url }}" class="img-thumbnail w-100 h-100 object-fit-cover" onclick="zoomPhoto(this)" alt="Photo opération" style="cursor: pointer;">
+                                      {% if photo.description %}
+                                        <div class="photo-description small text-muted mt-1">{{ photo.description|truncatechars:20 }}</div>
+                                      {% endif %}
+                                    </div>
+                                  {% endfor %}
+                                </div>
+                              {% else %}
+                                <span class="text-muted">Aucune photo</span>
+                              {% endif %}
+                            </td>
+                          </tr>
+                          {% if op.moyenscontrole.exists %}
+                          <tr>
+                            <td colspan="6">
+                              <div class="card card-body p-2">
+                                <h6 class="card-title mb-2">Moyens de contrôle associés</h6>
+                                <div class="table-responsive">
+                                  <table class="table table-sm table-bordered mb-0">
+                                    <thead class="table-light">
+                                      <tr>
+                                        <th>Nom</th>
+                                        <th>Photo</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {% for moyen in op.moyenscontrole.all %}
+                                      <tr>
+                                        <td>{{ moyen.nom }}</td>
+                                        <td>
+                                          {% if moyen.photo %}
+                                            <img src="{{ moyen.photo.url }}" alt="{{ moyen.nom }}" style="max-height: 40px; max-width: 40px; object-fit: cover;" class="me-2 rounded">
+                                          {% else %}
+                                            <span class="text-muted">Pas de photo</span>
+                                          {% endif %}
+                                        </td>
+                                      </tr>
+                                      {% endfor %}
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
-                              {% endfor %}
-                            {% else %}
-                              <span class="text-muted">Pas de photo</span>
-                            {% endif %}
-                          </td>
-                        </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
+                            </td>
+                          </tr>
+                          {% endif %}
+                          {% empty %}
+                          <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                              <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                              Aucune opération n'a été ajoutée à cette gamme.
+                            </td>
+                          </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   {% else %}
-                  <!-- Non-last gammes: only show afficher les opérations -->
+                  <!-- Inactive gammes: show afficher les opérations button -->
                   <div class="d-flex gap-2 mb-3">
                     <a class="btn btn-sm btn-outline-info" data-bs-toggle="collapse" href="#tableOperationsGamme{{ gamme.id }}">
                       Afficher les opérations
                     </a>
                   </div>
                   <div class="collapse" id="tableOperationsGamme{{ gamme.id }}">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th>Titre</th>
-                          <th>Ordre</th>
-                          <th>Description</th>
-                          <th>Critères</th>
-                          <th>Photo</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for op in gamme.operationcontrole_set.all %}
-                        <tr data-op-id="{{ op.id }}">
-                          <td>{{ op.titre }}</td>
-                          <td>{{ op.ordre }}</td>
-                          <td>{{ op.description }}</td>
-                          <td>{{ op.criteres }}</td>
-                          <td>
-                            {% if op.photooperation_set.all %}
-                              {% for photo in op.photooperation_set.all %}
-                              <div class="photo-cell">
-                                <img src="{{ photo.image.url }}" class="operation-photo" alt="Photo de l'opération" onclick="zoomPhoto(this)">
-                                <div class="photo-description">{{ photo.description }}</div>
-                              </div>
+                    <div class="table-responsive">
+                      <table class="table table-striped table-bordered">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Titre</th>
+                            <th>Ordre</th>
+                            <th>Description</th>
+                            <th>Critères</th>
+                            <th>Fréquence</th>
+                            <th>Moyen de contrôle</th>
+                            <th>Photos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% if gamme.operations.exists %}
+                            {% with operations=gamme.operations.all|dictsort:"ordre" %}
+                              {% for op in operations %}
+                              <tr>
+                                <td>{{ op.titre }}</td>
+                                <td>{{ op.ordre }}</td>
+                                <td>{{ op.description|default:"-"|linebreaksbr }}</td>
+                                <td>{{ op.criteres|default:"-"|linebreaksbr }}</td>
+                                <td>{{ op.frequence|default:"-" }}</td>
+                                <td>
+                                  {% if op.moyen_controle %}
+                                    {{ op.moyen_controle }}
+                                  {% else %}
+                                    <span class="text-muted">Aucun moyen de contrôle</span>
+                                  {% endif %}
+                                </td>
+                                <td>
+                                  {% if op.photooperation_set.exists %}
+                                    <div class="d-flex flex-wrap gap-2">
+                                      {% for photo in op.photooperation_set.all %}
+                                        <div class="position-relative" style="width: 40px; height: 40px;">
+                                          <img src="{{ photo.image.url }}" 
+                                               class="img-thumbnail w-100 h-100 object-fit-cover" 
+                                               onclick="zoomPhoto(this)" 
+                                               alt="Photo opération" 
+                                               style="cursor: pointer;">
+                                        </div>
+                                      {% endfor %}
+                                    </div>
+                                  {% else %}
+                                    <span class="text-muted">Aucune photo</span>
+                                  {% endif %}
+                                </td>
+                              </tr>
                               {% endfor %}
-                            {% else %}
-                              <span class="text-muted">Pas de photo</span>
-                            {% endif %}
-                          </td>
-                        </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
+                            {% endwith %}
+                          {% else %}
+                            <tr>
+                              <td colspan="6" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                Aucune opération n'a été ajoutée à cette gamme.
+                              </td>
+                            </tr>
+                          {% endif %}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                   {% endif %}
 
@@ -470,8 +725,22 @@
             <h5>Nouvelle Gamme</h5>
             <div class="mb-3">
               <label class="form-label">Intitulé</label>
-              <input type="text" class="form-control" name="gamme_intitule">
+              <input type="text" class="form-control" name="gamme_intitule" id="gamme_intitule_input">
             </div>
+            <script>
+              // Set default value for gamme_intitule when the new gamme form is shown
+              document.getElementById('newGammeForm').addEventListener('shown.bs.collapse', function() {
+                // Get the mission's intitulé from the mission form input
+                const missionIntitule = document.querySelector('input[name="intitule"]')?.value || '';
+                const gammeIntituleInput = document.getElementById('gamme_intitule_input');
+                
+                // Only set the default value if the input is empty
+                if (gammeIntituleInput && !gammeIntituleInput.value) {
+                  gammeIntituleInput.value = `Gamme de contrôle: ${missionIntitule}`;
+                }
+              });
+            </script>
+            <!-- Version is handled in the backend with a default value of 1.0 -->
             <div class="mb-3">
               <label class="form-label">No Incident</label>
               <input type="text" class="form-control" name="gamme_No_incident">
@@ -482,6 +751,153 @@
                 <option value="True">Actif</option>
                 <option value="False">Inactif</option>
               </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Commantaire</label>
+              <textarea class="form-control" name="gamme_commantaire"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Temps alloué</label>
+              <input type="number" class="form-control" name="gamme_Temps_alloue">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Commantaire identification</label>
+              <textarea class="form-control" name="gamme_commantaire_identification"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Commantaire traitement non conforme</label>
+              <textarea class="form-control" name="gamme_commantaire_traitement_non_conforme"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Photo traitement non conforme</label>
+              <input type="file" class="form-control" name="gamme_photo_traitement_non_conforme">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Picto</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="gamme_picto_s" value="true" id="pictoS">
+                <label class="form-check-label" for="pictoS">S</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="gamme_picto_r" value="true" id="pictoR" checked>
+                <label class="form-check-label" for="pictoR">R</label>
+              </div>
+              <!-- Hidden input to store combined picto value -->
+              <input type="hidden" name="gamme_picto_combined" id="gamme_picto_combined" value="R">
+              <script>
+                // Update combined picto value when checkboxes change
+                document.addEventListener('DOMContentLoaded', function() {
+                  const pictoS = document.getElementById('pictoS');
+                  const pictoR = document.getElementById('pictoR');
+                  const combinedInput = document.getElementById('gamme_picto_combined');
+                  
+                  function updatePictoValue() {
+                    let value = '';
+                    if (pictoS.checked) value += 'S';
+                    if (pictoR.checked) value += 'R';
+                    if (!value) {
+                      // Default to R if none checked
+                      pictoR.checked = true;
+                      value = 'R';
+                    }
+                    combinedInput.value = value;
+                  }
+                  
+                  pictoS.addEventListener('change', updatePictoValue);
+                  pictoR.addEventListener('change', updatePictoValue);
+                });
+              </script>
+            </div>
+            
+            <!-- Moyens de contrôle et EPI -->
+            <div class="row mb-3">
+              <!-- EPI Table -->
+              <div class="col-md-6 mb-3 mb-md-0">
+                <h6>Équipements de Protection Individuelle (EPI)</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Sélectionner</th>
+                        <th>Équipement</th>
+                        <th>Image</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% if epis %}
+                        {% for epi_item in epis %}
+                        <tr>
+                          <td class="align-middle" style="width: 50px; text-align: center;">
+                            <input type="checkbox" 
+                                   name="gamme_epi_{{ epi_item.id }}" 
+                                   class="form-check-input" 
+                                   value="{{ epi_item.id }}">
+                          </td>
+                          <td class="align-middle">
+                            {{ epi_item.nom }}
+                          </td>
+                          <td class="align-middle" style="width: 100px;">
+                            {% if epi_item.photo %}
+                            <img src="{{ epi_item.photo.url }}" alt="{{ epi_item.nom }}" class="img-thumbnail" style="max-width: 80px; max-height: 60px;">
+                            {% else %}
+                            <span class="text-muted">Aucune image</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      {% else %}
+                        <tr>
+                          <td colspan="3" class="text-center">Aucun EPI n'a été enregistré.</td>
+                        </tr>
+                      {% endif %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <!-- Moyens de contrôle -->
+              <div class="col-md-6">
+                <h6>Moyens de contrôle</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Sélectionner</th>
+                        <th>Moyen de contrôle</th>
+                        <th>Image</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% if moyens_controle %}
+                        {% for moyen in moyens_controle %}
+                        <tr>
+                          <td class="align-middle" style="width: 50px; text-align: center;">
+                            <input type="checkbox" 
+                                   name="gamme_moyen_controle_{{ moyen.id }}" 
+                                   class="form-check-input moyen-checkbox" 
+                                   value="{{ moyen.id }}">
+                          </td>
+                          <td class="align-middle">
+                            {{ moyen.nom }}
+                          </td>
+                          <td class="align-middle" style="width: 100px;">
+                            {% if moyen.photo %}
+                            <img src="{{ moyen.photo.url }}" alt="{{ moyen.nom }}" class="img-thumbnail" style="max-width: 80px; max-height: 60px;">
+                            {% else %}
+                            <span class="text-muted">Aucune image</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      {% else %}
+                        <tr>
+                          <td colspan="3" class="text-center">Aucun moyen de contrôle n'a été enregistré.</td>
+                        </tr>
+                      {% endif %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
 
             {{ operation_formset.management_form }}
@@ -510,6 +926,19 @@
                       <label class="form-label">Critères</label>
                       {{ form.criteres }}
                     </div>
+                    <div class="col-md-6 mb-3">
+                      <label>Moyens de contrôle</label>
+                      {{ form.moyen_controle }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label>Fréquence</label>
+                      {{ form.frequence }}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label>Critères</label>
+                      {{ form.criteres }}
+                    </div>
+
                   </div>
 
                   <!-- Container new photos for this new form op -->
@@ -848,6 +1277,9 @@
     }
   }
 
+  // Store moyens_controle data in a global variable
+  window.moyensControleData = [];
+  
   // Simple counter for operation forms
   let operationCounter = 0;
 
@@ -863,6 +1295,21 @@
       const defaultForm = container.querySelector('.operation-form');
       if (defaultForm) {
         defaultForm.style.display = 'block';
+        // Set the order for the first form
+        const orderInput = defaultForm.querySelector('input[name$="_ordre"]');
+        if (orderInput) {
+          // Get all operations in the current gamme
+          const gammeOperations = container.querySelectorAll('.operation-form:not([style*="display: none"]) input[name$="_ordre"]');
+          
+          // Get all order values and sort them
+          const existingOrders = Array.from(gammeOperations)
+            .map(input => parseInt(input.value) || 0)
+            .filter(order => !isNaN(order) && order > 0);
+          
+          // Find the maximum order value and add 1, or start with 1 if no operations exist
+          const maxOrder = existingOrders.length > 0 ? Math.max(...existingOrders) : 0;
+          orderInput.value = maxOrder + 1;
+        }
         // Ensure the container is visible
         const bsCollapse = bootstrap.Collapse.getInstance(container) || new bootstrap.Collapse(container);
         if (!container.classList.contains('show')) {
@@ -927,14 +1374,18 @@
       btn.setAttribute('onclick', `addNewOpPhotoForm(${gammeId}, ${operationCounter}, event)`);
     });
     
-    // Set the order field to the next available number
+    // Set the order field to be one more than the last operation's order in this gamme
     const orderInput = newForm.querySelector('input[name$="_ordre"]');
     if (orderInput) {
-      // Get all existing order values to find the next available number
-      const existingOrders = Array.from(container.querySelectorAll('input[name$="_ordre"]'))
-        .map(input => parseInt(input.value) || 0)
-        .filter(val => !isNaN(val) && val > 0);
+      // Get all operations in the current gamme
+      const gammeOperations = container.querySelectorAll('.operation-form:not([style*="display: none"]) input[name$="_ordre"]');
       
+      // Get all order values and sort them
+      const existingOrders = Array.from(gammeOperations)
+        .map(input => parseInt(input.value) || 0)
+        .filter(order => !isNaN(order) && order > 0);
+      
+      // Find the maximum order value and add 1, or start with 1 if no operations exist
       const maxOrder = existingOrders.length > 0 ? Math.max(...existingOrders) : 0;
       orderInput.value = maxOrder + 1;
     }
@@ -1072,8 +1523,40 @@
     }
   }
 
-  // Initialize photo counters when page loads
+  // Initialize photo counters and moyens controle when page loads
   document.addEventListener('DOMContentLoaded', function() {
+    // Initialize moyens controle checkboxes
+    document.querySelectorAll('.moyen-checkbox').forEach(checkbox => {
+      const opId = checkbox.dataset.opId;
+      const moyenId = checkbox.dataset.moyenId;
+      
+      // Add change event to update hidden inputs
+      checkbox.addEventListener('change', function() {
+        const hiddenInput = document.querySelector(`input[name="op_${opId}_moyens"][value="${moyenId}"]`);
+        if (this.checked && !hiddenInput) {
+          // Create hidden input if it doesn't exist
+          const newInput = document.createElement('input');
+          newInput.type = 'hidden';
+          newInput.name = `op_${opId}_moyens`;
+          newInput.value = moyenId;
+          this.closest('tr').appendChild(newInput);
+        } else if (!this.checked && hiddenInput) {
+          // Remove hidden input if it exists
+          hiddenInput.remove();
+        }
+      });
+      
+      // Create hidden input for checked checkboxes on page load
+      if (checkbox.checked) {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `op_${opId}_moyens`;
+        hiddenInput.value = moyenId;
+        checkbox.closest('tr').appendChild(hiddenInput);
+      }
+    });
+    
+    // Initialize existing photo counters
     document.querySelectorAll('[id^=newPhotoFormsContainer-]').forEach(container => {
         const opId = container.id.split('-')[1];
         updatePhotoCounter(opId);
@@ -1309,7 +1792,31 @@
     return hasDuplicates;
   }
   
-  // Add event listeners to order inputs for real-time validation
+  // Function to reorder operation rows based on order value
+  function reorderOperationRows(gammeId) {
+    const tableBody = document.querySelector(`#tableOperationsGamme${gammeId} tbody`);
+    if (!tableBody) return;
+
+    // Get all rows and convert to array
+    const rows = Array.from(tableBody.querySelectorAll('tr'));
+    
+    // Sort rows based on order value
+    rows.sort((a, b) => {
+      const orderA = parseInt(a.querySelector('input[name$="_ordre"]')?.value || '0');
+      const orderB = parseInt(b.querySelector('input[name$="_ordre"]')?.value || '0');
+      return orderA - orderB;
+    });
+
+    // Remove all rows
+    while (tableBody.firstChild) {
+      tableBody.removeChild(tableBody.firstChild);
+    }
+
+    // Add rows back in sorted order
+    rows.forEach(row => tableBody.appendChild(row));
+  }
+
+  // Add event listeners to order inputs for real-time validation and reordering
   document.addEventListener('input', function(e) {
     if (e.target.matches('input[name$="_ordre"], input[name$="-ordre"]')) {
       // Add a small delay to allow the value to update
@@ -1321,6 +1828,14 @@
           errorDiv.remove();
         }
         checkForDuplicateOrders();
+        
+        // Find the gamme ID from the closest parent element
+        const gammeId = e.target.closest('[id^="operationsGamme"]')?.id.replace('operationsGamme', '') ||
+                       e.target.closest('[id^="tableOperationsGamme"]')?.id.replace('tableOperationsGamme', '');
+        
+        if (gammeId) {
+          reorderOperationRows(gammeId);
+        }
       }, 100);
     }
   });

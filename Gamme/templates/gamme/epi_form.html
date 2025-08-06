@@ -1,0 +1,110 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card card-primary">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="bi bi-shield-plus"></i> {{ title }}
+                </h3>
+            </div>
+            <form method="post" enctype="multipart/form-data" class="form-horizontal">
+                {% csrf_token %}
+                <div class="card-body">
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        <label for="{{ form.nom.id_for_label }}" class="col-sm-3 control-label">
+                            {{ form.nom.label }}
+                            {% if form.nom.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        <div class="col-sm-12">
+                            {{ form.nom }}
+                            {% if form.nom.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.nom.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.nom.help_text %}
+                                <small class="form-text text-muted">{{ form.nom.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.photo.id_for_label }}" class="col-sm-3 control-label">
+                            {{ form.photo.label }}
+                            {% if form.photo.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        <div class="col-sm-12">
+                            <div class="custom-file">
+                                {{ form.photo }}
+                                <label class="custom-file-label" for="{{ form.photo.id_for_label }}">
+                                    Choisir un fichier...
+                                </label>
+                            </div>
+                            {% if form.photo.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.photo.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.photo.help_text %}
+                                <small class="form-text text-muted">{{ form.photo.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.commentaire.id_for_label }}" class="col-sm-3 control-label">
+                            {{ form.commentaire.label }}
+                        </label>
+                        <div class="col-sm-12">
+                            {{ form.commentaire }}
+                            {% if form.commentaire.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.commentaire.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.commentaire.help_text %}
+                                <small class="form-text text-muted">{{ form.commentaire.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> {{ submit_text|default:'Enregistrer' }}
+                    </button>
+                    <a href="{% url 'Gamme:epi_list' %}" class="btn btn-default float-right">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add the file input preview script -->
+<script>
+    // Update the file input label with the selected filename
+    document.querySelector('.custom-file-input').addEventListener('change', function(e) {
+        var fileName = e.target.files[0] ? e.target.files[0].name : 'Choisir un fichier...';
+        var nextSibling = e.target.nextElementSibling;
+        nextSibling.innerText = fileName;
+    });
+</script>
+{% endblock %}

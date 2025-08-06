@@ -2,6 +2,17 @@
 {% load static %}
 {% block content %}
 
+<div class="container-fluid mt-3">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
 <div class="card card-info card-outline mb-4">
   <div class="card-header">
     <div class="card-title">Créer une mission</div>
@@ -9,6 +20,8 @@
 
   <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate id="missionForm">
     {% csrf_token %}
+    <!-- Hidden input to store form data for client-side repopulation -->
+    <input type="hidden" id="form-data-json" value='{{ form_data_json|default:"{}"|escapejs }}'>
     <div class="card-body">
 
       <!-- Champs mission -->
@@ -21,30 +34,73 @@
                  class="form-control" 
                  value="{{ mission_form.code.value|default_if_none:'' }}" 
                  required
-                 onchange="checkMissionCode()"
-                 oninput="clearCodeError()">
+                 onblur="if(this.value.trim() !== '') checkMissionCode()"
+                 oninput="clearError(this)">
           <div id="codeError" class="invalid-feedback" style="display: none;">
             Ce code de mission existe déjà. Veuillez en choisir un autre.
+          </div>
+          <div id="codeRequiredError" class="invalid-feedback" style="display: none;">
+            Le code est obligatoire.
           </div>
         </div>
         <div class="col-md-6">
           <label class="form-label">Intitulé</label>
-          <input type="text" name="intitule" class="form-control" value="{{ mission_form.intitule.value|default_if_none:'' }}" required>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Référence Produit</label>
-          <input type="text" name="produitref" class="form-control" value="{{ mission_form.produitref.value|default_if_none:'' }}">
+          <input type="text" 
+                 name="intitule" 
+                 id="missionIntitule" 
+                 class="form-control" 
+                 value="{{ mission_form.intitule.value|default_if_none:'' }}" 
+                 required 
+                 oninput="updateGammeIntitule(this.value); clearError(this)">
+          <div id="intituleRequiredError" class="invalid-feedback" style="display: none;">
+            L'intitulé est obligatoire.
+          </div>
         </div>
         <div class="col-md-6">
           <label class="form-label">Statut</label>
-          <select name="statut" class="form-select">
-            <option value="True" {% if mission_form.statut.value == 'True' %}selected{% endif %}>Actif</option>
-            <option value="False" {% if mission_form.statut.value == 'False' %}selected{% endif %}>Inactif</option>
+          <select name="statut" id="missionStatut" class="form-select" required onchange="clearError(this)">
+            <option value="" disabled selected>Sélectionner un statut</option>
+            <option value="True" {% if mission_form.statut.value == True %}selected{% endif %}>Actif</option>
+            <option value="False" {% if mission_form.statut.value == False %}selected{% endif %}>Inactif</option>
           </select>
+          <div id="statutRequiredError" class="invalid-feedback" style="display: none;">
+            Le statut est obligatoire.
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Référence</label>
+          <input type="text" name="reference" id="missionReference" class="form-control" value="{{ mission_form.reference.value|default_if_none:'' }}" required>
+          <div id="referenceRequiredError" class="invalid-feedback" style="display: none;">
+            La référence est obligatoire.
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Section</label>
+          <input type="text" name="section" id="missionSection" class="form-control" value="{{ mission_form.section.value|default_if_none:'' }}" required>
+          <div id="sectionRequiredError" class="invalid-feedback" style="display: none;">
+            La section est obligatoire.
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Client</label>
+          <input type="text" name="client" id="missionClient" class="form-control" value="{{ mission_form.client.value|default_if_none:'' }}" required>
+          <div id="clientRequiredError" class="invalid-feedback" style="display: none;">
+            Le client est obligatoire.
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Désignation</label>
+          <input type="text" name="designation" id="missionDesignation" class="form-control" value="{{ mission_form.designation.value|default_if_none:'' }}" required>
+          <div id="designationRequiredError" class="invalid-feedback" style="display: none;">
+            La designation est obligatoire.
+          </div>
         </div>
         <div class="col-12">
           <label class="form-label">Description</label>
-          <textarea name="description" class="form-control">{{ mission_form.description.value|default_if_none:'' }}</textarea>
+          <textarea name="description" id="missionDescription" class="form-control" rows="3" required>{{ mission_form.description.value|default_if_none:'' }}</textarea>
+          <div id="descriptionRequiredError" class="invalid-feedback" style="display: none;">
+            La description est obligatoire.
+          </div>
         </div>
       </div>
 
@@ -53,9 +109,17 @@
       <!-- Zone dynamique des gammes -->
       <div id="gamme-container"></div>
 
-      {% if not object.gammecontrole %}
-      <button type="button" class="btn btn-outline-success mt-3" id="add-gamme-btn" onclick="addGamme()">➕ Ajouter une gamme</button>
-      {% endif %}
+      <!-- Django formset management fields for operation_formset -->
+      <div id="operation-formset-management">
+        <input type="hidden" name="operation_formset-TOTAL_FORMS" id="operation_formset-TOTAL_FORMS" value="0">
+        <input type="hidden" name="operation_formset-INITIAL_FORMS" id="operation_formset-INITIAL_FORMS" value="0">
+        <input type="hidden" name="operation_formset-MIN_NUM_FORMS" id="operation_formset-MIN_NUM_FORMS" value="0">
+        <input type="hidden" name="operation_formset-MAX_NUM_FORMS" id="operation_formset-MAX_NUM_FORMS" value="1000">
+      </div>
+
+      <button type="button" class="btn btn-outline-success mt-3" id="add-gamme-btn" onclick="addGamme()">
+        ➕ Ajouter une gamme
+      </button>
     </div>
 
     <div class="card-footer d-flex justify-content-end gap-2">
@@ -68,26 +132,400 @@
 <script>
 let gammeIndex = 0;
 
-function addGamme() {
+// Function to update all gamme intitulés when mission intitulé changes
+function updateGammeIntitule(missionIntitule) {
+  const gammeInputs = document.querySelectorAll('.gamme-intitule');
+  gammeInputs.forEach(input => {
+    // Only update if the user hasn't modified the gamme intitulé
+    if (input.dataset.modified !== 'true') {
+      input.value = missionIntitule ? `Gamme de contrôle : ${missionIntitule}` : 'Gamme de contrôle';
+    }
+  });
+}
+
+// Function to repopulate form data from server-side form_data
+function repopulateFormData() {
+  try {
+    console.log('Starting form data repopulation...');
+    const formDataElement = document.getElementById('form-data-json');
+    if (!formDataElement || !formDataElement.value) {
+      console.log('No form data found to repopulate');
+      return;
+    }
+    
+    const formData = JSON.parse(formDataElement.value);
+    if (!formData || Object.keys(formData).length === 0) {
+      console.log('Form data is empty');
+      return;
+    }
+
+    console.log('Form data to repopulate:', formData);
+
+    // Repopulate mission form fields
+    for (const [key, value] of Object.entries(formData)) {
+      if (key.startsWith('gamme_') || key.startsWith('operation_formset-') || key.startsWith('photo_')) {
+        continue; // Skip dynamic fields for now
+      }
+      const elements = document.getElementsByName(key);
+      if (elements.length > 0) {
+        elements.forEach(element => {
+          if (element.type === 'checkbox') {
+            element.checked = value === 'on' || value === 'true' || value === true;
+          } else if (element.type === 'select-one') {
+            element.value = value;
+          } else if (element.type === 'textarea') {
+            element.textContent = value;
+          } else {
+            element.value = value;
+          }
+        });
+      }
+    }
+
+    // Group dynamic data by gamme and operation
+    const gammesData = {};
+    for (const key of Object.keys(formData)) {
+      const gammeMatch = key.match(/^gamme_(\d+)_(.*)/);
+      if (gammeMatch) {
+        const gIndex = parseInt(gammeMatch[1]);
+        const gFieldName = gammeMatch[2];
+        if (!gammesData[gIndex]) {
+          gammesData[gIndex] = { operations: {} };
+        }
+        if (gFieldName.startsWith('moyen_controle_')) {
+          if (!gammesData[gIndex].moyens_controle) gammesData[gIndex].moyens_controle = [];
+          if (formData[key] === 'on') {
+            gammesData[gIndex].moyens_controle.push(gFieldName.replace('moyen_controle_', ''));
+          }
+        } else if (gFieldName.startsWith('epi_')) {
+          if (!gammesData[gIndex].epis) gammesData[gIndex].epis = [];
+          if (formData[key] === 'on') {
+            gammesData[gIndex].epis.push(gFieldName.replace('epi_', ''));
+          }
+        } else if (gFieldName === 'picto_s' || gFieldName === 'picto_r') {
+          gammesData[gIndex][gFieldName] = formData[key] === 'on' || formData[key] === 'true';
+        } else {
+          gammesData[gIndex][gFieldName] = formData[key];
+        }
+        continue;
+      }
+
+      const operationMatch = key.match(/^operation_formset-(\d+)-(\d+)_(.*)/);
+      if (operationMatch) {
+        const gIndex = parseInt(operationMatch[1]);
+        const oIndex = parseInt(operationMatch[2]);
+        const oFieldName = operationMatch[3];
+        if (!gammesData[gIndex]) {
+          gammesData[gIndex] = { operations: {} };
+        }
+        if (!gammesData[gIndex].operations[oIndex]) {
+          gammesData[gIndex].operations[oIndex] = { photos: {} };
+        }
+        // Map old 'intitule' to 'titre' and ignore 'statut'
+        if (oFieldName === 'intitule') {
+          gammesData[gIndex].operations[oIndex]['titre'] = formData[key];
+        } else if (oFieldName === 'statut') {
+          // Ignore statut field for operations
+          continue;
+        } else {
+          gammesData[gIndex].operations[oIndex][oFieldName] = formData[key];
+        }
+        continue;
+      }
+
+      const photoMatch = key.match(/^photo_(\d+)_(\d+)_(\d+)_(.*)/);
+      if (photoMatch) {
+        const gIndex = parseInt(photoMatch[1]);
+        const oIndex = parseInt(photoMatch[2]);
+        const pIndex = parseInt(photoMatch[3]);
+        const pFieldName = photoMatch[4];
+        if (!gammesData[gIndex]) {
+          gammesData[gIndex] = { operations: {} };
+        }
+        if (!gammesData[gIndex].operations[oIndex]) {
+          gammesData[gIndex].operations[oIndex] = { photos: {} };
+        }
+        if (!gammesData[gIndex].operations[oIndex].photos[pIndex]) {
+          gammesData[gIndex].operations[oIndex].photos[pIndex] = {};
+        }
+        gammesData[gIndex].operations[oIndex].photos[pIndex][pFieldName] = formData[key];
+        continue;
+      }
+    }
+
+    // Convert operations and photos objects to arrays and add gammes
+    const sortedGammeIndices = Object.keys(gammesData).sort((a, b) => parseInt(a) - parseInt(b));
+    sortedGammeIndices.forEach(gIndex => {
+      const gamme = gammesData[gIndex];
+      gamme.operations = Object.values(gamme.operations).map(op => {
+        op.photos = Object.values(op.photos);
+        return op;
+      });
+      addGamme(gamme);
+    });
+
+  } catch (error) {
+    console.error('Error repopulating form data:', error);
+  }
+}
+
+// Track if user has modified gamme intitulé
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('gamme-intitule')) {
+    e.target.dataset.modified = 'true';
+  }
+});
+
+function addGamme(initialValues = {}) {
+  const gammeIndex = document.querySelectorAll('.gamme-card').length;
+  
+  // Default values
+  const defaults = {
+    intitule: document.getElementById('missionIntitule') ? 
+      `Gamme de contrôle : ${document.getElementById('missionIntitule').value}` : 'Gamme de contrôle',
+    no_incident: '',
+    statut: 'True',
+    commentaire: '',
+    temps_alloue: '',
+    commentaire_identification: '',
+    commentaire_traitement_non_conforme: '',
+    photo_traitement_non_conforme: '',
+    picto_s: false,
+    picto_r: false,
+    moyens_controle: [],
+    epis: []
+  };
+  
+  // Merge with provided initial values
+  const values = { ...defaults, ...initialValues };
+
+  // Get existing moyens_controle and epis from the page data
+  let moyensControleData = [];
+  let episData = [];
+  
+  try {
+    const moyensDataElement = document.getElementById('moyens-controle-data');
+    const episDataElement = document.getElementById('epis-data');
+    
+    if (moyensDataElement && moyensDataElement.textContent) {
+      moyensControleData = JSON.parse(moyensDataElement.textContent);
+      console.log('Loaded moyens_controle data:', moyensControleData);
+    } else {
+      console.warn('No moyens_controle data found');
+    }
+    
+    if (episDataElement && episDataElement.textContent) {
+      episData = JSON.parse(episDataElement.textContent);
+      console.log('Loaded epis data:', episData);
+    } else {
+      console.warn('No epis data found');
+    }
+  } catch (error) {
+    console.error('Error parsing data:', error);
+  }
+  
   const gammeDiv = document.createElement('div');
   gammeDiv.className = "border p-3 mt-4 rounded bg-light";
   gammeDiv.innerHTML = `
     <h5>Gamme #${gammeIndex + 1}</h5>
-    <div class="row">
-      <div class="col-md-6">
-        <label>Intitulé</label>
-        <input type="text" name="gamme_${gammeIndex}_intitule" class="form-control" required>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label">Intitulé</label>
+        <input type="text" 
+               name="gamme_${gammeIndex}_intitule" 
+               class="form-control gamme-intitule" 
+               value="${values.intitule || ''}" 
+               required 
+               oninput="clearError(this)">
+        <div id="intituleRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          L'intitulé de la gamme est obligatoire.
+        </div>
       </div>
-      <div class="col-md-6">
-        <label>No Incident</label>
-        <input type="text" name="gamme_${gammeIndex}_no_incident" class="form-control">
-      </div>  
-      <div class="col-md-3">
-        <label>Statut</label>
+      
+      <div class="col-12">
+        <label class="form-label">No Incident</label>
+        <input type="text" 
+               name="gamme_${gammeIndex}_no_incident" 
+               class="form-control"
+               value="${values.no_incident}">
+        <div id="noIncidentRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          Le no incident de la gamme est obligatoire.
+        </div>
+      </div>
+      
+      <div class="col-12">
+        <label class="form-label">Statut</label>
         <select name="gamme_${gammeIndex}_statut" class="form-select">
-          <option value="True">Actif</option>
-          <option value="False">Inactif</option>
+          <option value="True" ${values.statut === 'True' || values.statut === true ? 'selected' : ''}>Actif</option>
+          <option value="False" ${values.statut === 'False' || values.statut === false ? 'selected' : ''}>Inactif</option>
         </select>
+        <div id="statutRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          Le statut de la gamme est obligatoire.
+        </div>
+      </div>
+      
+      <div class="col-12">
+        <label class="form-label">Commentaire</label>
+        <textarea name="gamme_${gammeIndex}_commentaire" class="form-control" rows="2">${values.commentaire}</textarea>
+        <div id="commentaireRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          Le commentaire de la gamme est obligatoire.
+        </div>
+      </div>
+      
+      <div class="col-12">
+        <label class="form-label">Temps alloué </label>
+        <input type="number" 
+               name="gamme_${gammeIndex}_temps_alloue" 
+               class="form-control"
+               value="${values.temps_alloue}">
+        <div id="tempsAlloueRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          Le temps alloué de la gamme est obligatoire.
+        </div>
+      </div>
+      
+      <div class="col-12">
+        <label class="form-label">Commentaire identification</label>
+        <textarea name="gamme_${gammeIndex}_commentaire_identification" class="form-control" rows="2">${values.commentaire_identification}</textarea>
+        <div id="commentaireIdentificationRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          Le commentaire identification de la gamme est obligatoire.
+        </div>
+      </div>
+      
+      <div class="col-12">
+        <label class="form-label">Commentaire traitement non conforme</label>
+        <textarea name="gamme_${gammeIndex}_commentaire_traitement_non_conforme" class="form-control" rows="2">${values.commentaire_traitement_non_conforme}</textarea>
+        <div id="commentaireTraitementNonConformeRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          Le commentaire traitement non conforme de la gamme est obligatoire.
+        </div>
+      </div>
+      
+      <div class="col-12">
+        <label class="form-label">Photo traitement non conforme</label>
+        <input type="file" name="gamme_${gammeIndex}_photo_traitement_non_conforme" class="form-control">
+        ${values.photo_traitement_non_conforme ? `
+          <div class="mt-2">
+            <small class="text-muted">Fichier précédent : ${values.photo_traitement_non_conforme}</small>
+          </div>
+        ` : ''}
+        <div id="photoTraitementNonConformeRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          La photo traitement non conforme de la gamme est obligatoire.
+        </div>
+      </div>
+      
+      <div class="col-12">
+        <label class="form-label">Picto</label><br>
+        <div class="form-check">
+          <input class="form-check-input" 
+                 type="checkbox" 
+                 name="gamme_${gammeIndex}_picto_s" 
+                 id="pictoS_${gammeIndex}" 
+                 value="true"
+                 ${values.picto_s === true || values.picto_s === 'true' || (values.picto && values.picto.includes('S')) ? 'checked' : ''}>
+          <label class="form-check-label" for="pictoS_${gammeIndex}">S</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" 
+                 type="checkbox" 
+                 name="gamme_${gammeIndex}_picto_r" 
+                 id="pictoR_${gammeIndex}" 
+                 value="true"
+                 ${(values.picto_r === true || values.picto_r === 'true' || (values.picto && values.picto.includes('R')) || (!values.picto_s && !values.picto)) ? 'checked' : 'checked'}>
+          <label class="form-check-label" for="pictoR_${gammeIndex}">R</label>
+        </div>
+        <div id="pictoRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+          Le picto de la gamme est obligatoire.
+        </div>
+      </div>
+
+      <!-- Moyens de Contrôle et EPI -->
+      <div class="row mt-4">
+        <!-- Moyens de Contrôle -->
+        <div class="col-md-6">
+          <h6>Moyens de Contrôle</h6>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th>Nom</th>
+                  <th>Photo</th>
+                  <th class="text-center">Sélection</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${moyensControleData.map(moyen => `
+                  <tr>
+                    <td>${moyen.nom}</td>
+                    <td>
+                      ${moyen.photo ? 
+                        `<img src="${moyen.photo}" alt="${moyen.nom}" class="img-thumbnail" style="max-width: 50px;">` :
+                        `<span class="text-muted">Aucune photo</span>`
+                      }
+                    </td>
+                    <td class="text-center">
+                      <input type="checkbox" 
+                             name="gamme_${gammeIndex}_moyen_controle" 
+                             value="${moyen.id}"
+                             class="form-check-input"
+                             ${values.moyens_controle && values.moyens_controle.includes(moyen.id.toString()) ? 'checked' : ''}>
+                    </td>
+                  </tr>
+                `).join('')}
+                ${moyensControleData.length === 0 ? `
+                  <tr>
+                    <td colspan="3" class="text-center text-muted">Aucun moyen de contrôle disponible</td>
+                  </tr>
+                ` : ''}
+              </tbody>
+            </table>
+          </div>
+          <div id="moyenControleRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+            Les moyens de contrôle de la gamme sont obligatoires.
+          </div>
+        </div>
+
+        <!-- EPI -->
+        <div class="col-md-6">
+          <h6>EPI (Équipement de Protection Individuelle)</h6>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th>Nom</th>
+                  <th>Photo</th>
+                  <th class="text-center">Sélection</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${episData.map(epi => `
+                  <tr>
+                    <td>${epi.nom}</td>
+                    <td>
+                      ${epi.photo ? 
+                        `<img src="${epi.photo}" alt="${epi.nom}" class="img-thumbnail" style="max-width: 50px;">` :
+                        `<span class="text-muted">Aucune photo</span>`
+                      }
+                    </td>
+                    <td class="text-center">
+                      <input type="checkbox" 
+                             name="gamme_${gammeIndex}_epi_${epi.id}" 
+                             value="${epi.id}"
+                             class="form-check-input"
+                             ${values.epis && values.epis.includes(epi.id.toString()) ? 'checked' : ''}>
+                    </td>
+                  </tr>
+                `).join('')}
+                ${episData.length === 0 ? `
+                  <tr>
+                    <td colspan="3" class="text-center text-muted">Aucun EPI disponible</td>
+                  </tr>
+                ` : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="epiRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
+        Les EPI de la gamme sont obligatoires.
       </div>
     </div>
 
@@ -98,109 +536,222 @@ function addGamme() {
 
   const addBtn = document.getElementById("add-gamme-btn");
   addBtn.disabled = true;
-  addBtn.classList.add("d-none");
-
-  gammeIndex++;
-}
-
-function addOperation(gammeId) {
-  const container = document.getElementById(`operation-container-${gammeId}`);
-  const operationIndex = container.childElementCount;
-
-  const operationDiv = document.createElement('div');
-  operationDiv.className = "border p-3 mt-3 rounded bg-white";
-  operationDiv.innerHTML = `
-    <h6>Opération #${operationIndex + 1}</h6>
-    <div class="row">
-      <div class="col-md-6">
-        <label>Titre</label>
-        <input type="text" name="operation_${gammeId}_${operationIndex}_titre" class="form-control" required>
-      </div>
-      <div class="col-md-3">
-        <label>Ordre</label>
-        <input type="number" name="operation_${gammeId}_${operationIndex}_ordre" class="form-control" value="${operationIndex + 1}">
-      </div>
-      <div class="col-md-12 mt-2">
-        <label>Description</label>
-        <textarea name="operation_${gammeId}_${operationIndex}_description" class="form-control"></textarea>
-      </div>
-      <div class="col-md-12 mt-2">
-        <label>Critères</label>
-        <textarea name="operation_${gammeId}_${operationIndex}_criteres" class="form-control"></textarea>
-      </div>
-    </div>
-
-    <div id="photo-container-${gammeId}-${operationIndex}" class="mt-3"></div>
-    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addPhoto(${gammeId}, ${operationIndex})">🖼️ Ajouter une photo</button>
-  `;
-
-  container.appendChild(operationDiv);
-}
-
-// Function to check for duplicate mission codes
-async function checkDuplicateCode(code) {
-  try {
-    const response = await fetch(`/gamme/api/check-mission-code/?code=${encodeURIComponent(code)}`);
-    const data = await response.json();
-    return data.exists;
-  } catch (error) {
-    console.error('Error checking mission code:', error);
-    return false;
-  }
 }
 
 // Add input event listener to code field
-// Function to clear code error message
-function clearCodeError() {
-  const codeInput = document.getElementById('missionCode');
-  const errorDiv = document.getElementById('codeError');
-  if (codeInput && errorDiv) {
-    codeInput.classList.remove('is-invalid');
+// Function to clear error message
+function clearError(input) {
+  input.classList.remove('is-invalid');
+  const errorDiv = input.nextElementSibling;
+  if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
     errorDiv.style.display = 'none';
   }
 }
 
 // Function to check if mission code already exists
+let isChecking = false;
+
 async function checkMissionCode() {
+  if (isChecking) return false;
+  isChecking = true;
+  
   const codeInput = document.getElementById('missionCode');
   const errorDiv = document.getElementById('codeError');
   
-  if (!codeInput || !errorDiv) return;
-  
-  const code = codeInput.value.trim();
-  if (!code) return;
-  
-  try {
-    const response = await fetch(`/gamme/api/check-mission-code/?code=${encodeURIComponent(code)}`);
-    const data = await response.json();
-    
-    if (data.exists) {
-      codeInput.classList.add('is-invalid');
-      errorDiv.style.display = 'block';
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Error checking mission code:', error);
+  if (!codeInput || !errorDiv) {
+    isChecking = false;
     return false;
   }
+  
+  const code = codeInput.value.trim();
+  
+  // Always hide the duplicate error when checking
+  errorDiv.style.display = 'none';
+  codeInput.classList.remove('is-invalid');
+  
+  // Only check if code is not empty
+  if (code) {
+    try {
+      const response = await fetch(`/gamme/api/check-mission-code/?code=${encodeURIComponent(code)}`);
+      const data = await response.json();
+      
+      if (data.exists) {
+        codeInput.classList.add('is-invalid');
+        errorDiv.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Error checking mission code:', error);
+    }
+  }
+  
+  isChecking = false;
+  return false;
 }
 
 // Form submission handler
 function validateForm(event) {
-  const codeInput = document.getElementById('missionCode');
-  if (codeInput && codeInput.classList.contains('is-invalid')) {
-    event.preventDefault();
-    codeInput.focus();
-    return false;
+  event.preventDefault();
+  let isValid = true;
+  const form = event.target;
+  
+  // Ensure at least one picto is checked for each gamme
+  document.querySelectorAll('input[name^="gamme_"][name$="_picto_r"]').forEach(checkbox => {
+    const gammeId = checkbox.name.split('_')[1];
+    const pictoS = document.querySelector(`input[name="gamme_${gammeId}_picto_s"]`);
+    const pictoR = document.querySelector(`input[name="gamme_${gammeId}_picto_r"]`);
+    
+    // If neither is checked, check the R checkbox by default
+    if (!pictoS.checked && !pictoR.checked) {
+      pictoR.checked = true;
+    }
+  });
+  
+  // Clear previous validation
+  document.querySelectorAll('.is-invalid').forEach(field => field.classList.remove('is-invalid'));
+  document.querySelectorAll('.invalid-feedback').forEach(el => el.style.display = 'none');
+  
+  // Define required fields with their validation rules
+  const requiredFields = [
+    { id: 'missionCode', name: 'code', errorId: 'codeRequiredError', message: 'Le code est obligatoire.' },
+    { id: 'missionIntitule', name: 'intitulé', errorId: 'intituleRequiredError', message: 'L\'intitulé est obligatoire.' },
+    { id: 'missionStatut', name: 'statut', errorId: 'statutRequiredError', message: 'Le statut est obligatoire.' },
+    { id: 'missionReference', name: 'référence', errorId: 'referenceRequiredError', message: 'La référence est obligatoire.' },
+    { id: 'missionSection', name: 'section', errorId: 'sectionRequiredError', message: 'La section est obligatoire.' },
+    { id: 'missionClient', name: 'client', errorId: 'clientRequiredError', message: 'Le client est obligatoire.' },
+    { id: 'missionDesignation', name: 'désignation', errorId: 'designationRequiredError', message: 'La désignation est obligatoire.' },
+    { id: 'missionDescription', name: 'description', errorId: 'descriptionRequiredError', message: 'La description est obligatoire.' }
+  ];
+
+  // Validate each required field (mission level)
+  requiredFields.forEach(fieldConfig => {
+    const field = document.getElementById(fieldConfig.id);
+    if (!field) {
+      console.error(`Field not found: ${fieldConfig.id}`);
+      return;
+    }
+
+    let value = field.value;
+    if (field.type === 'select-one' || field.type === 'select-multiple') {
+      // Handle select elements
+      value = field.options[field.selectedIndex]?.value || '';
+    } else if (field.type === 'checkbox' || field.type === 'radio') {
+      // Handle checkboxes and radio buttons
+      value = field.checked ? field.value : '';
+    } else {
+      // Handle text inputs and textareas
+      value = value ? value.trim() : '';
+    }
+
+    console.log(`Validating field ${fieldConfig.id}:`, value);
+
+    // Check if field is required and empty
+    if (field.required && !value) {
+      // Mark field as invalid
+      field.classList.add('is-invalid');
+      const errorElement = document.getElementById(fieldConfig.errorId);
+      if (errorElement) {
+        errorElement.textContent = fieldConfig.message;
+        errorElement.style.display = 'block';
+      }
+      isValid = false;
+      
+      // Scroll to first error
+      if (isValid === false) {
+        field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        field.focus();
+        isValid = false; // Keep false for first error
+      }
+    }
+  });
+  
+  // Check for duplicate code
+  if (isValid) {
+    const codeInput = document.getElementById('missionCode');
+    if (codeInput && codeInput.classList.contains('is-invalid')) {
+      console.log('Code is invalid (duplicate)');
+      isValid = false;
+      const codeError = document.getElementById('codeError');
+      if (codeError) {
+        codeError.style.display = 'block';
+      }
+    }
   }
-  return true;
+  
+  // If form is valid, we can submit
+  if (!isValid) {
+    console.log('Form validation failed');
+    
+    // Show a general error message
+    const generalError = document.getElementById('generalError');
+    if (generalError) {
+      generalError.textContent = 'Veuillez corriger les erreurs ci-dessous avant de soumettre le formulaire.';
+      generalError.style.display = 'block';
+    }
+    
+    // Re-enable 'Ajouter une opération' buttons when validation fails
+    document.querySelectorAll('button[onclick^="addOperation"]').forEach(btn => {
+      btn.disabled = false;
+    });
+    
+    // Scroll to first error
+    const firstError = form.querySelector('.is-invalid');
+    if (firstError) {
+      firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  } else {
+    console.log('Form is valid, submitting...');
+    // Disable submit button to prevent double submission
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement en cours...';
+    }
+    
+    // Submit the form
+    form.submit();
+  }
+  
+  return isValid;
+}
+  
+
+// Add validation styles to form controls
+function addValidationStyles() {
+  // Style form controls on validation
+  const forms = document.querySelectorAll('.needs-validation');
+  
+  Array.prototype.slice.call(forms).forEach(function(form) {
+    form.addEventListener('submit', function(event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    }, false);
+  });
 }
 
+// Initialize the form when the page loads
 document.addEventListener('DOMContentLoaded', function() {
-  const codeInput = document.querySelector('input[name="code"]');
+  addValidationStyles();
   const form = document.getElementById('missionForm');
+  
+  // Repopulate form data when the page loads
+  repopulateFormData();
   let isChecking = false;
+
+  // Repopulate form data if there was a validation error
+  repopulateFormData();
+  
+  // Make all required fields only validate on their own form
+  document.querySelectorAll('form').forEach(form => {
+    form.setAttribute('novalidate', ''); // Disable HTML5 validation
+    
+    // Add submit event to each form
+    form.addEventListener('submit', function(e) {
+      return validateForm(e);
+    });
+  });
 
   if (codeInput) {
     codeInput.addEventListener('input', async function() {
@@ -249,22 +800,357 @@ document.addEventListener('DOMContentLoaded', function() {
       return true;
     });
   }
+
+  // Add real-time validation for required fields
+  document.querySelectorAll('[required]').forEach(field => {
+    field.addEventListener('blur', function() {
+      // Only validate if the field is in the current active form
+      const form = this.closest('form');
+      if (form) {
+        if (!this.value.trim()) {
+          this.classList.add('is-invalid');
+          const errorDiv = this.nextElementSibling;
+          if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
+            errorDiv.style.display = 'block';
+          }
+        } else {
+          this.classList.remove('is-invalid');
+          const errorDiv = this.nextElementSibling;
+          if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
+            errorDiv.style.display = 'none';
+          }
+        }
+      }
+    });
+  });
 });
 
-function addPhoto(gammeId, operationId) {
+// Function to validate order number for duplicate values
+function validateOrderNumber(input) {
+  const gammeId = input.dataset.gammeId;
+  const orderValue = parseInt(input.value);
+  const container = document.getElementById(`operation-container-${gammeId}`);
+  
+  if (isNaN(orderValue)) {
+    return; // Skip validation if not a number
+  }
+  
+  // Find all order inputs in the same gamme
+  const orderInputs = container.querySelectorAll(`input[type="number"][name$="_ordre"]`);
+  let isDuplicate = false;
+  
+  orderInputs.forEach(otherInput => {
+    if (otherInput !== input && parseInt(otherInput.value) === orderValue) {
+      isDuplicate = true;
+    }
+  });
+  
+  // Show/hide error message and set validation state
+  const errorDiv = input.closest('.col-12').querySelector('.order-error');
+  if (isDuplicate) {
+    input.classList.add('is-invalid');
+    errorDiv.style.display = 'block';
+  } else {
+    input.classList.remove('is-invalid');
+    errorDiv.style.display = 'none';
+  }
+}
+
+// Function to add a new operation form
+function addOperation(gammeId, initialValues = {}) {
+  const container = document.getElementById(`operation-container-${gammeId}`);
+  const operationIndex = container.childElementCount;
+  
+  // Find the highest existing order number for this gamme
+  let maxOrder = 0;
+  const orderInputs = container.querySelectorAll('input[type="number"][name$="_ordre"]');
+  orderInputs.forEach(input => {
+    const order = parseInt(input.value) || 0;
+    if (order > maxOrder) {
+      maxOrder = order;
+    }
+  });
+
+  const defaults = {
+    ordre: maxOrder + 1,
+    titre: '',
+    description: '',
+    moyen_controle: '',
+    frequence: '',
+    criteres: '',
+    photos: []
+  };
+  const values = { ...defaults, ...initialValues };
+
+  const operationDiv = document.createElement('div');
+  operationDiv.className = "card card-body bg-light mt-3 operation-card position-relative";
+  operationDiv.dataset.operationId = operationIndex;
+  operationDiv.dataset.gammeId = gammeId;
+  operationDiv.innerHTML = `
+    <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="removeOperation(this)" aria-label="Supprimer l'opération"></button>
+    <h6 class="mb-3">Opération #${operationIndex + 1}</h6>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label">Ordre</label>
+        <input type="number" 
+               name="operation_formset-${gammeId}-${operationIndex}_ordre" 
+               class="form-control ordre-input" 
+               data-gamme-id="${gammeId}" 
+               value="${values.ordre}" 
+               onchange="validateOrderNumber(this)" 
+               required>
+        <div class="invalid-feedback order-error" style="display: none;">
+          Ce numéro d'ordre est déjà utilisé. Veuillez en choisir un autre.
+        </div>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Titre</label>
+        <input type="text" name="operation_formset-${gammeId}-${operationIndex}_titre" class="form-control" value="${values.titre}" required>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Description</label>
+        <textarea name="operation_formset-${gammeId}-${operationIndex}_description" class="form-control" rows="2">${values.description}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Moyen de Contrôle</label>
+        <input type="text" name="operation_formset-${gammeId}-${operationIndex}_moyen_controle" class="form-control" value="${values.moyen_controle}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Fréquence</label>
+        <input type="number" name="operation_formset-${gammeId}-${operationIndex}_frequence" class="form-control" value="${values.frequence}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Critères</label>
+        <textarea name="operation_formset-${gammeId}-${operationIndex}_criteres" class="form-control" rows="2">${values.criteres}</textarea>
+      </div>
+    </div>
+    <div id="photo-container-${gammeId}-${operationIndex}" class="mt-3"></div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addPhoto(${gammeId}, ${operationIndex})">
+      <i class="bi bi-plus-circle"></i> Ajouter une photo
+    </button>
+  `;
+  container.appendChild(operationDiv);
+
+  // Update TOTAL_FORMS for the operation formset
+  const totalFormsInput = document.getElementById('operation_formset-TOTAL_FORMS');
+  totalFormsInput.value = parseInt(totalFormsInput.value) + 1;
+
+  // Repopulate photos if initialValues are provided
+  if (values.photos && values.photos.length > 0) {
+    values.photos.forEach(photo => addPhoto(gammeId, operationIndex, photo));
+  }
+}
+
+function addPhoto(gammeId, operationId, initialValues = {}) {
   const container = document.getElementById(`photo-container-${gammeId}-${operationId}`);
-  const photoIndex = container.childElementCount;
+  const photoCards = container.getElementsByClassName('photo-card');
+  
+  // Check if we've reached the maximum number of photos (5)
+  if (photoCards.length >= 5) {
+    // Show an alert or message to the user
+    alert('Vous ne pouvez pas ajouter plus de 5 photos par opération.');
+    return;
+  }
+  
+  const newPhotoIndex = photoCards.length;
+  const defaults = {
+    image: '',
+    description: ''
+  };
+  const values = { ...defaults, ...initialValues };
 
   const photoDiv = document.createElement('div');
-  photoDiv.className = "card mt-2 p-2";
+  photoDiv.className = "card mt-2 p-3 photo-card position-relative";
+  photoDiv.id = `photo-${gammeId}-${operationId}-${newPhotoIndex}`;
   photoDiv.innerHTML = `
-    <label>Photo #${photoIndex + 1}</label>
-    <input type="file" name="photo_${gammeId}_${operationId}_${photoIndex}_image" class="form-control mb-2">
-    <textarea name="photo_${gammeId}_${operationId}_${photoIndex}_description" class="form-control" placeholder="Description de la photo"></textarea>
+    <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="removePhoto(this)" aria-label="Supprimer la photo"></button>
+    <div class="d-flex align-items-center mb-2">
+      <i class="bi bi-image me-2"></i>
+      <h6 class="mb-0">Photo #${newPhotoIndex + 1}</h6>
+    </div>
+    <div class="mb-3">
+      <input type="file" name="photo_${gammeId}_${operationId}_${newPhotoIndex}_image" class="form-control" accept="image/*">
+      ${values.image ? `
+        <div class="mt-2">
+          <small class="text-muted">Fichier précédent : ${values.image}</small>
+        </div>
+      ` : ''}
+    </div>
+    <div>
+      <textarea name="photo_${gammeId}_${operationId}_${newPhotoIndex}_description" class="form-control" placeholder="Description de la photo" rows="2">${values.description}</textarea>
+    </div>
   `;
 
   container.appendChild(photoDiv);
+  
+  // Update the add photo button state
+  updateAddPhotoButtonState(gammeId, operationId);
 }
+
+// Function to remove a photo
+function removePhoto(button) {
+  if (confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) {
+    const photoCard = button.closest('.photo-card');
+    if (photoCard) {
+      photoCard.remove();
+      
+      // Update the parent operation's add photo button state
+      const container = photoCard.parentElement;
+      const operationId = container.id.split('-')[3];
+      const gammeId = container.id.split('-')[2];
+      updateAddPhotoButtonState(gammeId, operationId);
+      
+      // Renumber remaining photos
+      const photoCards = container.getElementsByClassName('photo-card');
+      Array.from(photoCards).forEach((card, index) => {
+        const title = card.querySelector('h6');
+        if (title) {
+          title.textContent = `Photo #${index + 1}`;
+        }
+      });
+    }
+  }
+}
+
+// Function to remove an operation
+function removeOperation(button) {
+  if (confirm('Êtes-vous sûr de vouloir supprimer cette opération ? Toutes les photos associées seront également supprimées.')) {
+    const operationCard = button.closest('.operation-card');
+    if (operationCard) {
+      operationCard.remove();
+      
+      // Update operation numbering
+      const container = document.getElementById('operation-container-' + operationCard.dataset.gammeId);
+      const operationCards = container.getElementsByClassName('operation-card');
+      
+      Array.from(operationCards).forEach((card, index) => {
+        const title = card.querySelector('h6');
+        if (title) {
+          title.textContent = `Opération #${index + 1}`;
+        }
+        
+        // Update form field names to maintain sequential numbering
+        const inputs = card.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+          const name = input.getAttribute('name');
+          if (name) {
+            const newName = name.replace(
+              /operation_formset-\d+-(\d+)_/,
+              `operation_formset-${operationCard.dataset.gammeId}-${index}_`
+            );
+            input.setAttribute('name', newName);
+          }
+        });
+      });
+    }
+  }
+}
+
+// Function to update the add photo button state
+function updateAddPhotoButtonState(gammeId, operationId) {
+  const container = document.getElementById(`photo-container-${gammeId}-${operationId}`);
+  const photoCards = container.getElementsByClassName('photo-card');
+  const addButton = container.previousElementSibling;
+  
+  if (photoCards.length >= 5) {
+    addButton.disabled = true;
+    addButton.classList.add('btn-secondary');
+    addButton.classList.remove('btn-outline-secondary');
+    addButton.title = 'Maximum de 5 photos atteint';
+  } else {
+    addButton.disabled = false;
+    addButton.classList.remove('btn-secondary');
+    addButton.classList.add('btn-outline-secondary');
+    addButton.title = '';
+  }
+}
+</script>
+
+<!-- Form submission handler -->
+<script>
+// Debug function to log form data
+function logFormData(form) {
+  console.log('=== Form Data ===');
+  const formData = new FormData(form);
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: ${value}`);
+  }
+  console.log('=================');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('missionForm');
+  
+  if (form) {
+    // Log form data before submission
+    form.addEventListener('submit', function(event) {
+      console.log('Form submission started');
+      logFormData(form);
+      
+      // Let the validateForm function handle the submission
+      if (!validateForm(event)) {
+        console.log('Form validation failed');
+        event.preventDefault();
+        return false;
+      }
+      
+      console.log('Form validation passed, submitting...');
+      
+      // If we get here, validation passed
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement en cours...';
+      }
+      
+      // Allow the form to submit normally
+      return true;
+    });
+    
+    // Add click handler for submit button for additional debugging
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', function() {
+        console.log('Submit button clicked');
+        console.log('Form valid:', form.checkValidity());
+        if (!form.checkValidity()) {
+          console.log('Form is not valid according to HTML5 validation');
+        }
+      });
+    }
+    
+    // Initialize any other form-related functionality here
+    addValidationStyles();
+  }
+});
+</script>
+
+<!-- Data containers for JavaScript -->
+<script id="moyens-controle-data" type="application/json">
+  [
+    {% for moyen in moyens_controle %}
+      {
+        "id": "{{ moyen.id }}",
+        "nom": "{{ moyen.nom|escapejs }}",
+        "photo": "{{ moyen.photo.url|default:'' }}",
+        "description": "{{ moyen.description|default:''|escapejs }}",
+        "ordre": {{ moyen.ordre|default:0 }}
+      }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+</script>
+
+<script id="epis-data" type="application/json">
+  [
+    {% for item in epis %}
+      {
+        "id": "{{ item.id }}",
+        "nom": "{{ item.nom|escapejs }}",
+        "photo": "{{ item.photo.url|default:'' }}",
+        "description": "{{ item.description|default:''|escapejs }}"
+      }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
 </script>
 
 {% endblock %}

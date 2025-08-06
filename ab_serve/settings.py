@@ -28,14 +28,25 @@ SECRET_KEY = 'django-insecure-j0l_)#a9@m8v0xivvfm_qfj!dp55b3r1+@*%69#jyx021+r!r0
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    os.path.join(BASE_DIR, 'static'),
 ]
+
+# Ensure STATICFILES_DIRS is a list of paths
+STATICFILES_DIRS = [str(path) for path in STATICFILES_DIRS]
+
+# Add support for static files in development
+if DEBUG:
+    STATICFILES_DIRS.append(os.path.join(BASE_DIR, 'Gamme', 'static'))
 # Application definition
 AUTH_USER_MODEL = 'Gamme.User'
 
@@ -125,10 +136,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-STATIC_URL = 'static/'
+# Static files are configured above
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

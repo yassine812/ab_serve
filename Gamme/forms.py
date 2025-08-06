@@ -1,33 +1,54 @@
+import os
 from django import forms
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from .models import User,Profile
 from django.contrib.auth.forms import UserCreationForm
 from django.forms.models import inlineformset_factory, modelformset_factory
-from .models import GammeControle, MissionControle, OperationControle, PhotoOperation
+from .models import GammeControle, MissionControle, OperationControle, PhotoOperation, epi, moyens_controle
 
 # ----------- FORMULAIRE : GammeControle -----------
 
 class GammeControleForm(forms.ModelForm):
     class Meta:
         model = GammeControle
-        fields = ['mission', 'intitule', 'statut']
+        fields = ['mission', 'intitule', 'statut', 'No_incident', 'commantaire', 'Temps_alloué', 'commantaire_identification', 'commantaire_traitement_non_conforme', 'photo_traitement_non_conforme']
         widgets = {
             'mission': forms.Select(attrs={'class': 'form-select'}),
             'intitule': forms.TextInput(attrs={'class': 'form-control'}),
             'statut': forms.Select(choices=[(True, 'Actif'), (False, 'Inactif')], attrs={'class': 'form-select'}),
+            'No_incident': forms.TextInput(attrs={'class': 'form-control'}),
+            'commantaire': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'Temps_alloué': forms.NumberInput(attrs={'class': 'form-control'}),
+            'commantaire_identification': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'commantaire_traitement_non_conforme': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'photo_traitement_non_conforme': forms.FileInput(attrs={'class': 'form-control'}),
         }
+
+    def clean_intitule(self):
+        intitule = self.cleaned_data.get('intitule')
+        if not intitule:
+            raise ValidationError("L'intitulé de la gamme ne peut pas être vide.")
+        return intitule
+
+    def clean_Temps_alloué(self):
+        temps_alloue = self.cleaned_data.get('Temps_alloué')
+        if temps_alloue is not None and temps_alloue < 0:
+            raise ValidationError("Le temps alloué ne peut pas être négatif.")
+        return temps_alloue
 
 # ----------- FORMULAIRE : OperationControle -----------
 
 class OperationControleForm(forms.ModelForm):
     class Meta:
         model = OperationControle
-        fields = ['titre', 'description', 'criteres', 'ordre']
+        fields = ['titre', 'description', 'criteres', 'moyen_controle', 'frequence', 'ordre']
         widgets = {
             'titre': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'criteres': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'moyen_controle': forms.TextInput(attrs={'class': 'form-control'}),
+            'frequence': forms.NumberInput(attrs={'class': 'form-control'}),
             'ordre': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
@@ -50,21 +71,81 @@ class MissionControleForm(forms.ModelForm):
         (False, 'Inactif'),
     ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Convert initial boolean values to string for the form
+        if 'statut' in self.initial:
+            self.initial['statut'] = str(self.initial['statut'])
+
     statut = forms.TypedChoiceField(
         choices=STATUT_CHOICES,
         coerce=lambda x: x == 'True',
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        required=True
     )
+    
+    def clean_statut(self):
+        statut = self.cleaned_data.get('statut')
+        # Convert string 'True'/'False' to boolean if needed
+        if isinstance(statut, str):
+            return statut.lower() == 'true'
+        return bool(statut)
 
     class Meta:
         model = MissionControle
-        fields = ['code', 'intitule', 'description', 'produitref', 'statut']
+        fields = ['code', 'intitule', 'section', 'client', 'designation', 'description', 'reference', 'statut']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
             'intitule': forms.TextInput(attrs={'class': 'form-control'}),
+            'section': forms.TextInput(attrs={'class': 'form-control'}),
+            'client': forms.TextInput(attrs={'class': 'form-control'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'produitref': forms.TextInput(attrs={'class': 'form-control'}),
+            'reference': forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+# ----------- FORMULAIRE : Moyen de Contrôle -----------
+
+class MoyenControleForm(forms.ModelForm):
+    class Meta:
+        model = moyens_controle
+        fields = ['nom', 'photo', 'ordre']
+        widgets = {
+            'nom': forms.TextInput(attrs={'class': 'form-control'}),
+            'ordre': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+    
+    def clean_photo(self):
+        photo = self.cleaned_data.get('photo', False)
+        if photo:
+            # Limit file size to 5MB
+            if photo.size > 5 * 1024 * 1024:
+                raise forms.ValidationError("La taille de l'image ne doit pas dépasser 5MB.")
+            
+            # Check file extension
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif']
+            ext = os.path.splitext(photo.name)[1].lower()
+            if ext not in valid_extensions:
+                raise forms.ValidationError("Format de fichier non supporté. Utilisez JPG, JPEG, PNG ou GIF.")
+        return photo
+        
+    def clean_ordre(self):
+        ordre = self.cleaned_data.get('ordre')
+        if ordre is not None:
+            # Check if this is an update or create operation
+            instance = getattr(self, 'instance', None)
+            
+            # Query for existing moyens_controle with the same ordre
+            queryset = moyens_controle.objects.filter(ordre=ordre)
+            
+            # If this is an update, exclude the current instance from the query
+            if instance and instance.pk:
+                queryset = queryset.exclude(pk=instance.pk)
+                
+            if queryset.exists():
+                raise forms.ValidationError("Cette valeur d'ordre est déjà utilisée. Veuillez en choisir une autre.")
+                
+        return ordre
 
 # ----------- FORMULAIRE : Inscription Utilisateur -----------
 class RegisterForm(UserCreationForm):
@@ -101,6 +182,47 @@ class ProfileUpdateForm(forms.ModelForm):
     def save(self, commit=True):
         return super().save(commit)
 
+# ----------- FORMULAIRE : EPI -----------
+
+class EpiForm(forms.ModelForm):
+    class Meta:
+        model = epi
+        fields = ['nom', 'photo', 'commentaire']
+        widgets = {
+            'nom': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nom de l\'équipement',
+                'required': 'required',
+            }),
+            'commentaire': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Description ou notes sur l\'équipement',
+            }),
+            'photo': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*',
+                'required': 'required',
+            }),
+        }
+        labels = {
+            'nom': 'Nom de l\'équipement',
+            'photo': 'Photo de l\'équipement',
+            'commentaire': 'Commentaires',
+        }
+        help_texts = {
+            'photo': 'Formats supportés: JPG, PNG. Taille maximale: 5 Mo.',
+        }
+
+    def clean_photo(self):
+        photo = self.cleaned_data.get('photo')
+        if photo:  # Only validate if a file was uploaded
+            if hasattr(photo, 'size') and photo.size > 5*1024*1024:  # 5MB limit
+                raise forms.ValidationError("La taille de l'image ne doit pas dépasser 5 Mo.")
+            if hasattr(photo, 'content_type') and not photo.content_type.startswith('image/'):
+                raise forms.ValidationError("Veuillez télécharger un fichier image valide.")
+        return photo
+
 # ----------- INLINE FORMSETS -----------
 
 # GammeControle inline formset for MissionControle
@@ -118,7 +240,8 @@ UpdateOperationFormSet = inlineformset_factory(
     OperationControle,
     form=OperationControleForm,
     extra=1,
-    can_delete=True
+    can_delete=True,
+    fields=['titre', 'description', 'criteres', 'moyen_controle', 'frequence', 'ordre']
 )
 
 # PhotoOperation inline formset for OperationControle

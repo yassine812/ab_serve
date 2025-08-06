@@ -1,0 +1,133 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content-wrapper">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0">Moyens de contrôle</h1>
+                </div><!-- /.col -->
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="{% url 'Gamme:dashboard' %}">Tableau de bord</a></li>
+                        <li class="breadcrumb-item active">Moyens de contrôle</li>
+                    </ol>
+                </div><!-- /.col -->
+            </div><!-- /.row -->
+        </div><!-- /.container-fluid -->
+    </div>
+    <!-- /.content-header -->
+
+    <!-- Main content -->
+    <section class="content">
+        <div class="container-fluid">
+            <!-- Info boxes -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Liste des moyens de contrôle</h3>
+                            <div class="card-tools">
+                                <a href="{% url 'Gamme:moyencontrole_create' %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Ajouter
+                                </a>
+                            </div>
+                        </div>
+                        <!-- /.card-header -->
+                        <div class="card-body table-responsive p-0">
+                            <table class="table table-hover text-nowrap">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Photo</th>
+                                        <th>Nom</th>
+                                        <th>Ordre</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for moyen in object_list %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>
+                                            {% if moyen.photo %}
+                                                <img src="{{ moyen.photo.url }}" alt="{{ moyen.nom }}" class="img-thumbnail" style="max-height: 40px; width: auto;">
+                                            {% else %}
+                                                <span class="text-muted">Aucune photo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ moyen.nom }}</td>
+                                        <td>{{ moyen.ordre }}</td>
+                                        <td class="text-nowrap">
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'Gamme:moyencontrole_update' moyen.id %}" 
+                                                   class="btn btn-outline-primary" 
+                                                   data-toggle="tooltip" 
+                                                   data-placement="top" 
+                                                   title="Modifier">
+                                                    <i class="fas fa-edit"></i>
+                                                    <span class="d-none d-md-inline ml-1">Modifier</span>
+                                                </a>
+                                                <a href="{% url 'Gamme:moyencontrole_delete' moyen.id %}" 
+                                                   class="btn btn-outline-danger" 
+                                                   data-toggle="tooltip" 
+                                                   data-placement="top" 
+                                                   title="Supprimer">
+                                                    <i class="fas fa-trash"></i>
+                                                    <span class="d-none d-md-inline ml-1">Supprimer</span>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center">Aucun moyen de contrôle trouvé.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- /.card-body -->
+                        {% if is_paginated %}
+                        <div class="card-footer clearfix">
+                            <ul class="pagination pagination-sm m-0 float-right">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                    {% else %}
+                                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo;</a></li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <!-- /.card -->
+                </div>
+            </div>
+            <!-- /.row -->
+        </div><!-- /.container-fluid -->
+    </section>
+    <!-- /.content -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Enable tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+    });
+</script>
+{% endblock %}

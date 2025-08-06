@@ -1,0 +1,100 @@
+{% extends 'Gamme/admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content-wrapper">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0">Supprimer le moyen de contrôle</h1>
+                </div><!-- /.col -->
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="{% url 'Gamme:dashboard' %}">Tableau de bord</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'Gamme:moyencontrole_list' %}">Moyens de contrôle</a></li>
+                        <li class="breadcrumb-item active">Supprimer</li>
+                    </ol>
+                </div><!-- /.col -->
+            </div><!-- /.row -->
+        </div><!-- /.container-fluid -->
+    </div>
+    <!-- /.content-header -->
+
+    <!-- Main content -->
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-8 mx-auto">
+                    <div class="card card-danger">
+                        <div class="card-header">
+                            <h3 class="card-title">Confirmer la suppression</h3>
+                        </div>
+                        <!-- /.card-header -->
+                        <div class="card-body">
+                            <p>Êtes-vous sûr de vouloir supprimer le moyen de contrôle suivant ?</p>
+                            
+                            <div class="card mb-3">
+                                <div class="row no-gutters">
+                                    <div class="col-md-4">
+                                        {% if object.photo %}
+                                            <img src="{{ object.photo.url }}" class="card-img" alt="{{ object.nom }}" style="max-height: 150px; width: auto; object-fit: contain;">
+                                        {% else %}
+                                            <div class="bg-light d-flex align-items-center justify-content-center" style="height: 150px;">
+                                                <span class="text-muted">Aucune photo</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ object.nom }}</h5>
+                                            <p class="card-text">
+                                                <small class="text-muted">Ordre d'affichage: {{ object.ordre }}</small>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-warning">
+                                <h5><i class="icon fas fa-exclamation-triangle"></i> Attention !</h5>
+                                <p>Cette action est irréversible. Toutes les données associées à ce moyen de contrôle seront définitivement supprimées.</p>
+                            </div>
+                        </div>
+                        <!-- /.card-body -->
+
+                        <div class="card-footer">
+                            <form method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-trash"></i> Confirmer la suppression
+                                </button>
+                                <a href="{% url 'Gamme:moyencontrole_list' %}" class="btn btn-default float-right">
+                                    <i class="fas fa-times"></i> Annuler
+                                </a>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- /.card -->
+                </div>
+                <!-- /.col -->
+            </div>
+            <!-- /.row -->
+        </div><!-- /.container-fluid -->
+    </section>
+    <!-- /.content -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Prevent double form submission
+        $('form').submit(function() {
+            $('button[type="submit"]').prop('disabled', true);
+            $('button[type="submit"]').html('<i class="fas fa-spinner fa-spin"></i> Suppression en cours...');
+        });
+    });
+</script>
+{% endblock %}

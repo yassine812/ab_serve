@@ -2,19 +2,27 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Max
+from django.db.models import Max, Prefetch
 import os
 import logging
+import json
 from django.views.generic import ListView,DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.forms import inlineformset_factory
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from .models import MissionControle, GammeControle, OperationControle, PhotoOperation, PhotoDefaut, User
-from .forms import MissionControleForm, GammeControleForm,ProfileUpdateForm, OperationControleForm,OperationControleFormSet, PhotoOperationForm, UpdateGammeFormSet, UpdateOperationFormSet, UpdatePhotoFormSet,RegisterForm
+from .models import MissionControle, GammeControle, OperationControle, PhotoOperation, PhotoDefaut, User, epi, moyens_controle
+from .forms import MissionControleForm, GammeControleForm,ProfileUpdateForm, OperationControleForm,OperationControleFormSet, PhotoOperationForm, UpdateGammeFormSet, UpdateOperationFormSet, UpdatePhotoFormSet,RegisterForm, EpiForm, MoyenControleForm
 from django.contrib.auth import logout
 from django.views import View
 from django.contrib.auth.views import LoginView
+import logging
+import json
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 gammeFormSet = inlineformset_factory(   
     MissionControle,
     GammeControle,
@@ -29,20 +37,37 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
         missioncontrole = get_object_or_404(MissionControle, pk=pk)
         operation_formset = OperationControleFormSet(prefix='form', queryset=OperationControle.objects.none())
         
-        # Get gammes with prefetched photos, ordered by last update date
-        gammes = GammeControle.objects.filter(mission=missioncontrole)
-        gammes = gammes.prefetch_related('defaut_photos').order_by('-date_mise_a_jour')
+        # Get all gammes with their operations, regardless of status
+        gammes = GammeControle.objects.filter(mission=missioncontrole).prefetch_related(
+            Prefetch('operations', queryset=OperationControle.objects.all().prefetch_related(
+                Prefetch('moyenscontrole', queryset=moyens_controle.objects.all().order_by('ordre')), 
+                'photooperation_set'
+            )), 
+            'defaut_photos',
+            'epis',  # Prefetch EPIs for each gamme
+            'moyens_controle'  # Prefetch moyens_controle for each gamme
+        ).order_by('-date_mise_a_jour')
         
-        # Debug: Log gamme IDs and their photo counts
-        if logger.isEnabledFor(logging.DEBUG):
-            for gamme in gammes:
-                logger.debug(f"Gamme {gamme.id} has {gamme.defaut_photos.count()} defect photos")
-            
-        return render(request, self.template_name, {
+        # Add a flag to each gamme to indicate if it's active
+        for gamme in gammes:
+            gamme.is_active = gamme.statut
+        
+        
+        # Get moyens de contrôle ordered by 'ordre'
+        moyens_controle_list = moyens_controle.objects.all().order_by('ordre')
+        
+        # Get all EPIs
+        all_epis = epi.objects.all()
+        
+        context = {
             'missioncontrole': missioncontrole,
             'gammes': gammes,
             'operation_formset': operation_formset,
-        })
+            'moyens_controle': moyens_controle_list,
+            'epis': all_epis,
+        }
+        
+        return render(request, self.template_name, context)
 
     def post(self, request, pk):
         missioncontrole = get_object_or_404(MissionControle, pk=pk)
@@ -52,7 +77,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
             # --- Mise à jour des champs mission ---
             missioncontrole.code = request.POST.get('code', missioncontrole.code)
             missioncontrole.intitule = request.POST.get('intitule', missioncontrole.intitule)
-            missioncontrole.produitref = request.POST.get('produitref', missioncontrole.produitref)
+            missioncontrole.reference = request.POST.get('reference', missioncontrole.reference)
             missioncontrole.statut = request.POST.get('statut', str(missioncontrole.statut)) == 'True'
             missioncontrole.save()
 
@@ -73,7 +98,12 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     changement_detecte = True
 
                 # Process existing operations
-                for op in gamme.operationcontrole_set.all():
+                processed_op_ids = set()
+                for op in gamme.operations.all():
+                    if op.id in processed_op_ids:
+                        continue  # Skip already processed operations
+                    processed_op_ids.add(op.id)
+                    
                     titre = request.POST.get(f"{op.id}-titre", op.titre)
                     ordre = request.POST.get(f"{op.id}-ordre", op.ordre)
                     description = request.POST.get(f"{op.id}-description", op.description)
@@ -81,6 +111,13 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
 
                     if titre != op.titre or str(ordre) != str(op.ordre) or description != op.description or criteres != op.criteres:
                         changement_detecte = True
+                        # Update the operation in place if no new gamme is being created
+                        if not changement_detecte:
+                            op.titre = titre
+                            op.ordre = ordre
+                            op.description = description
+                            op.criteres = criteres
+                            op.save()
 
                     # Process existing photos
                     for photo in op.photooperation_set.all():
@@ -88,12 +125,21 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                         delete = request.POST.get(f"photo_{photo.id}_DELETE", None)
                         if desc != photo.description or delete is not None:
                             changement_detecte = True
+                            # Update photo in place if no new gamme is being created
+                            if not changement_detecte and desc != photo.description:
+                                photo.description = desc
+                                photo.save()
 
                     # Check for new dynamic photos
-                    for key in request.FILES.keys():
-                        if key.startswith(f'photo_{op.id}_'):
-                            changement_detecte = True
-                            break
+                    has_new_photos = any(key.startswith(f'photo_{op.id}_') for key in request.FILES.keys())
+                    if has_new_photos:
+                        changement_detecte = True
+
+                # Check for changes in moyens de contrôle
+                selected_moyens_ids = set([k.split('_')[-1] for k in request.POST.keys() if k.startswith(f'gamme_{gamme.id}_moyen_controle_') and request.POST.get(k) == 'on'])
+                current_moyens_ids = set([str(m.id) for m in gamme.moyens_controle.all()])
+                if selected_moyens_ids != current_moyens_ids:
+                    changement_detecte = True
 
                 # Check for new operations
                 for key in request.POST.keys():
@@ -119,35 +165,156 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     next_version = round(latest_version + 0.1, 1)
 
                     no_incident = request.POST.get(f'{gamme.id}-No_incident', gamme.No_incident)
+                    # Get the new fields
+                    commentaire = request.POST.get(f'{gamme.id}-commentaire', gamme.commantaire or '')
+                    temps_alloue = request.POST.get(f'{gamme.id}-temps_alloue', gamme.Temps_alloué)
+                    commentaire_identification = request.POST.get(f'{gamme.id}-commentaire_identification', gamme.commantaire_identification or '')
+                    commentaire_non_conforme = request.POST.get(f'{gamme.id}-commentaire_non_conforme', gamme.commantaire_traitement_non_conforme or '')
+                    
+                    # Handle file upload for photo_non_conforme
+                    photo_non_conforme = request.FILES.get(f'{gamme.id}-photo_non_conforme')
+                    if not photo_non_conforme and hasattr(gamme, 'photo_traitement_non_conforme'):
+                        photo_non_conforme = gamme.photo_traitement_non_conforme
+                    
+                    picto_s = request.POST.get(f'{gamme.id}-picto_s') == 'on'
+                    picto_r = request.POST.get(f'{gamme.id}-picto_r') == 'on'
+                    
+                    # First, set all previous versions to inactive
+                    GammeControle.objects.filter(mission=missioncontrole, intitule=gamme.intitule).update(statut=False)
+                    
+                    # Create new gamme with statut=True
                     new_gamme = GammeControle.objects.create(
                         mission=missioncontrole,
                         intitule=intitule,
                         No_incident=no_incident,
-                        statut=(statut == 'True'),
+                        statut=True,  # Explicitly set to True for the new version
                         version=next_version,
+                        commantaire=commentaire,
+                        Temps_alloué=temps_alloue if temps_alloue else None,
+                        commantaire_identification=commentaire_identification,
+                        commantaire_traitement_non_conforme=commentaire_non_conforme,
+                        photo_traitement_non_conforme=photo_non_conforme,
+                        picto_s=picto_s,
+                        picto_r=picto_r,
                         created_by=request.user
                     )
 
-                # Get the maximum order value from existing operations in the new gamme
-                max_order = OperationControle.objects.filter(gamme=new_gamme).aggregate(Max('ordre'))['ordre__max'] or 0
-                
-                # First, collect all operations with their new order values
-                operations_to_update = []
-                for op in gamme.operationcontrole_set.all():
-                    # Get the new order value from the form
-                    new_order = request.POST.get(f"{op.id}-ordre")
-                    try:
-                        new_order = int(new_order) if new_order is not None else op.ordre
-                    except (ValueError, TypeError):
-                        new_order = op.ordre
+                    # Save selected moyens de contrôle for the new gamme
+                    moyen_controle_ids = [k.split('_')[-1] for k in request.POST.keys()
+                                       if k.startswith(f'gamme_{gamme.id}_moyen_controle_') and request.POST.get(k) == 'on']
+                    if moyen_controle_ids:
+                        selected_moyens = moyens_controle.objects.filter(id__in=moyen_controle_ids)
+                        new_gamme.moyens_controle.set(selected_moyens)
+
+                    # Save selected EPIs for the new gamme
+                    epi_ids = [k.split('_')[-1] for k in request.POST.keys()
+                             if k.startswith(f'gamme_{gamme.id}_epi_') and request.POST.get(k) == 'on']
+                    if epi_ids:
+                        selected_epis = epi.objects.filter(id__in=epi_ids)
+                        new_gamme.epis.set(selected_epis)
+
+                    # Update EPI comments if submitted
+                    for key, value in request.POST.items():
+                        if key.startswith('epi_') and key.endswith('_commentaire'):
+                            try:
+                                epi_id = int(key.split('_')[1])
+                                epi_obj = epi.objects.get(id=epi_id)
+                                if epi_obj.commentaire != value:
+                                    epi_obj.commentaire = value
+                                    epi_obj.save()
+                                    print(f"Updated commentaire for EPI {epi_obj.nom} (ID: {epi_obj.id})")
+                            except (ValueError, epi.DoesNotExist) as e:
+                                print(f"Error updating EPI comment for key {key}: {e}")
+
+                # If we're creating a new gamme version, we'll create new operations for it
+                if changement_detecte and new_gamme != gamme:
+                    # Get the maximum order value from existing operations in the new gamme
+                    max_order = OperationControle.objects.filter(gamme=new_gamme).aggregate(Max('ordre'))['ordre__max'] or 0
                     
-                    operations_to_update.append({
-                        'op': op,
-                        'new_order': new_order,
-                        'titre': request.POST.get(f"{op.id}-titre", op.titre),
-                        'description': request.POST.get(f"{op.id}-description", op.description),
-                        'criteres': request.POST.get(f"{op.id}-criteres", op.criteres)
-                    })
+                    # First, collect all operations with their new order values
+                    operations_to_update = []
+                    processed_op_ids = set()  # Track processed operation IDs to prevent duplicates
+                    
+                    # Process existing operations
+                    for op in gamme.operations.all():
+                        if op.id in processed_op_ids:
+                            continue  # Skip already processed operations
+                            
+                        processed_op_ids.add(op.id)
+                        
+                        # Get the new values from the form
+                        new_titre = request.POST.get(f"{op.id}-titre", op.titre)
+                        new_description = request.POST.get(f"{op.id}-description", op.description)
+                        new_criteres = request.POST.get(f"{op.id}-criteres", op.criteres)
+                        new_ordre = request.POST.get(f"{op.id}-ordre")
+                        
+                        try:
+                            new_ordre = int(new_ordre) if new_ordre is not None else op.ordre
+                        except (ValueError, TypeError):
+                            new_ordre = op.ordre
+                        
+                        # Get the moyen_controle value from the form or use the existing one
+                        moyen_controle_value = request.POST.get(f"{op.id}-moyen_controle", '')
+                        if not moyen_controle_value and hasattr(op, 'moyen_controle'):
+                            moyen_controle_value = op.moyen_controle
+                        
+                        # Only add the operation if it belongs to the current gamme version
+                        if op.gamme_id == gamme.id:
+                            operations_to_update.append({
+                                'op': op,
+                                'new_order': new_ordre,
+                                'titre': new_titre,
+                                'description': new_description or '',
+                                'criteres': new_criteres or '',
+                                'frequence': request.POST.get(f"{op.id}-frequence", getattr(op, 'frequence', 1)),
+                                'moyens_id': request.POST.get(f"{op.id}-moyens"),
+                                'moyenscontrole': op.moyenscontrole.all(),
+                                'moyen_controle': moyen_controle_value
+                            })
+                else:
+                    # If no new gamme version, update operations in place
+                    for op in gamme.operations.all():
+                        if op.id in processed_op_ids:
+                            continue
+                            
+                        processed_op_ids.add(op.id)
+                        
+                        # Get the new values from the form
+                        new_titre = request.POST.get(f"{op.id}-titre", op.titre)
+                        new_description = request.POST.get(f"{op.id}-description", op.description)
+                        new_criteres = request.POST.get(f"{op.id}-criteres", op.criteres)
+                        new_ordre = request.POST.get(f"{op.id}-ordre")
+                        
+                        try:
+                            new_ordre = int(new_ordre) if new_ordre is not None else op.ordre
+                        except (ValueError, TypeError):
+                            new_ordre = op.ordre
+                        
+                        # Update the operation in place
+                        op.titre = new_titre
+                        op.description = new_description
+                        op.criteres = new_criteres
+                        op.ordre = new_ordre
+                        
+                        # Update moyen_controle if needed
+                        moyen_controle_value = request.POST.get(f"{op.id}-moyen_controle")
+                        if moyen_controle_value:
+                            op.moyen_controle = moyen_controle_value
+                        
+                        op.save()
+                        
+                        # Handle photos for the operation
+                        self._handle_operation_photos(request, op)
+
+                    # Save selected moyens de contrôle for the new gamme
+                    moyen_controle_ids = [k.split('_')[-1] for k in request.POST.keys()
+                                       if k.startswith(f'gamme_{gamme.id}_moyen_controle_') and request.POST.get(k) == 'on']
+                    if moyen_controle_ids:
+                        selected_moyens = moyens_controle.objects.filter(id__in=moyen_controle_ids)
+                        gamme.moyens_controle.set(selected_moyens)
+                        
+                    # Skip the rest of the operation creation logic for existing gamme
+                    continue
                 
                 # Sort operations by their new order to ensure consistent ordering
                 operations_to_update.sort(key=lambda x: x['new_order'])
@@ -159,15 +326,29 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     while OperationControle.objects.filter(gamme=new_gamme, ordre=current_order).exists():
                         current_order += 1
                     
-                    # Create the new operation with the updated values
+                    # Get moyen de contrôle if selected
+                    moyen = None
+                    if op_data['moyens_id']:
+                        try:
+                            moyen = moyens_controle.objects.get(id=op_data['moyens_id'])
+                        except (moyens_controle.DoesNotExist, ValueError):
+                            pass
+                    
+                    # Create the new operation with all fields except many-to-many
                     new_op = OperationControle.objects.create(
                         gamme=new_gamme,
                         titre=op_data['titre'],
                         ordre=current_order,  # Use the sequential order
                         description=op_data['description'],
                         criteres=op_data['criteres'],
+                        frequence=op_data['frequence'],
+                        moyen_controle=op_data['moyen_controle'],
                         created_by=request.user
                     )
+                    
+                    # Set moyen de contrôle if selected using set() for many-to-many
+                    if moyen:
+                        new_op.moyenscontrole.set([moyen])
                     current_order += 1
                     
                     # Get the original operation for copying photos
@@ -236,10 +417,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     # First check for the operation fields with the current index
                     titre = request.POST.get(f'newop_{gamme.id}_{i}_titre')
                     
-                    # Debug: Log all FILES keys
-                    print(f"\nDebug - FILES keys: {list(request.FILES.keys())}")
-                    print(f"Looking for files with prefix: newop_{gamme.id}_{i}_photo_")
-                    
+                   
                     if not titre:
                         # If no title, check if there are any files for this operation
                         has_files = any(k.startswith(f'newop_{gamme.id}_{i}_photo_') for k in request.FILES.keys())
@@ -253,6 +431,8 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     # Get other operation fields
                     description = request.POST.get(f'newop_{gamme.id}_{i}_description', '')
                     criteres = request.POST.get(f'newop_{gamme.id}_{i}_criteres', '')
+                    frequence = request.POST.get(f'newop_{gamme.id}_{i}_frequence', '')
+                    moyen_controle = request.POST.get(f'newop_{gamme.id}_{i}_moyen_controle', '')
                     
                     # Get the next available order value for this gamme
                     max_ordre = OperationControle.objects.filter(
@@ -262,15 +442,27 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     
                     print(f"Creating new operation with ordre: {next_ordre} for gamme {new_gamme.id}")
                     
-                    # Create the new operation
+                    # Create the new operation with all fields including moyen_controle
                     new_op = OperationControle.objects.create(
                         gamme=new_gamme,
                         titre=titre,
                         ordre=next_ordre,  # Use the calculated next order
                         description=description,
                         criteres=criteres,
+                        frequence=frequence,
+                        moyen_controle=moyen_controle,
                         created_by=request.user
                     )
+                    
+                    # Get and set moyens de contrôle for this new operation
+                    moyens_ids = request.POST.getlist(f'newop_{gamme.id}_{i}_moyens')
+                    if moyens_ids:
+                        try:
+                            moyen = moyens_controle.objects.get(id=moyens_ids[0])  # Assuming single selection
+                            new_op.moyenscontrole = moyen
+                            new_op.save()
+                        except (moyens_controle.DoesNotExist, ValueError):
+                            pass
 
                     # Process photos for this operation
                     print(f"\nProcessing photos for operation {i} (gamme: {gamme.id}, new_op: {new_op.id})")
@@ -333,10 +525,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     i += 1
 
         except Exception as e:
-            # Log the error for debugging
-            import traceback
-            error_message = f"Error in MissionControleUpdateView: {str(e)}\n{traceback.format_exc()}"
-            print(error_message)
+            
             
             if is_ajax:
                 return JsonResponse({
@@ -353,23 +542,81 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
         gamme_statut = request.POST.get('gamme_statut')
         
         if gamme_intitule and gamme_statut is not None:
-            # Create the new gamme
+            # Debug: Print all POST data
+            print("\n=== DEBUG: RAW POST DATA ===")
+            for key, value in request.POST.items():
+                print(f"{key}: {value}")
+                
+            # Handle picto values
+            picto_combined = request.POST.get('gamme_picto_combined', 'R')
+            picto_s = 'S' in picto_combined
+            picto_r = 'R' in picto_combined
+            
+            # Create the new gamme with all form fields
             new_gamme = GammeControle.objects.create(
                 mission=missioncontrole,
                 intitule=gamme_intitule,
                 No_incident=gamme_no_incident,
                 statut=gamme_statut == 'True',
+                commantaire=request.POST.get('gamme_commantaire', ''),
+                Temps_alloué=request.POST.get('gamme_Temps_alloue'),  # Note the accented 'é'
+                commantaire_identification=request.POST.get('gamme_commantaire_identification', ''),
+                commantaire_traitement_non_conforme=request.POST.get('gamme_commantaire_traitement_non_conforme', ''),
+                picto_s=picto_s,
+                picto_r=picto_r,
                 created_by=request.user,
-                version=1.0
+                version='1.0'  # Version is a CharField in the model
             )
             
-            # Debug: Print all form data with more details
-            print("\n=== RAW REQUEST DATA ===")
-            print(f"Method: {request.method}")
-            print(f"Content-Type: {request.content_type}")
-            print(f"POST data keys: {list(request.POST.keys())}")
-            print(f"FILES data keys: {list(request.FILES.keys())}")
+            # Handle photo upload for traitement non conforme
+            if 'gamme_photo_traitement_non_conforme' in request.FILES:
+                new_gamme.photo_traitement_non_conforme = request.FILES['gamme_photo_traitement_non_conforme']
+                new_gamme.save()
             
+            # Debug: Print all EPI and moyen checkboxes
+            print("\n=== DEBUG: EPI CHECKBOXES ===")
+            for k, v in request.POST.items():
+                if k.startswith('gamme_epi_') or k.startswith('gamme_moyen_controle_'):
+                    print(f"{k}: {v}")
+            
+            # Debug: Print all POST data for EPI and moyens de contrôle
+            print("\n=== DEBUG: RAW POST DATA FOR CHECKBOXES ===")
+            for k, v in request.POST.items():
+                if k.startswith('gamme_epi_') or k.startswith('gamme_moyen_controle_'):
+                    print(f"{k}: {v}")
+            
+            # Handle EPI selections - check for any EPI checkboxes that were checked
+            epi_ids = []
+            for k, v in request.POST.items():
+                if k.startswith('gamme_epi_'):
+                    try:
+                        # Get the EPI ID from the checkbox name (format: gamme_epi_<id>)
+                        epi_id = int(k.split('_')[-1])
+                        # The value is the EPI ID, not 'on' like in some forms
+                        epi_ids.append(epi_id)
+                    except (ValueError, IndexError) as e:
+                        print(f"Error parsing EPI ID from {k}: {e}")
+            
+            print(f"Found EPI IDs: {epi_ids}")
+            new_gamme.epis.set(epi_ids)
+            
+            # Handle moyens de contrôle selections - check for any moyen checkboxes that were checked
+            moyen_ids = []
+            for k, v in request.POST.items():
+                if k.startswith('gamme_moyen_controle_'):
+                    try:
+                        # Get the moyen ID from the checkbox name (format: gamme_moyen_controle_<id>)
+                        moyen_id = int(k.split('_')[-1])
+                        # The value is the moyen ID, not 'on' like in some forms
+                        moyen_ids.append(moyen_id)
+                    except (ValueError, IndexError) as e:
+                        print(f"Error parsing moyen ID from {k}: {e}")
+            
+            print(f"Found moyen IDs: {moyen_ids}")
+            new_gamme.moyens_controle.set(moyen_ids)
+            
+            # Debug: Print all form data with more details
+           
             print("\n=== FORM DATA ===")
             for key, value in request.POST.items():
                 print(f"{key}: {value}")
@@ -379,12 +626,8 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 print(f"{key}: {file_obj.name} (size: {file_obj.size} bytes, type: {file_obj.content_type})")
             
             # Print all request headers for debugging
-            print("\n=== REQUEST HEADERS ===")
-            for header, value in request.META.items():
-                if header.startswith('HTTP_') or header in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
-                    print(f"{header}: {value}")
-            
-            # Process operation forms using Django formset
+           
+                        # Process operation forms using Django formset
             operation_formset = OperationControleFormSet(
                 request.POST, 
                 request.FILES,
@@ -392,12 +635,12 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 queryset=OperationControle.objects.none()
             )
             
-            print("\n=== DEBUG: Processing operation formset ===")
-            print(f"Formset is valid: {operation_formset.is_valid()}")
+           
+            
             
             if operation_formset.is_valid():
                 operations = operation_formset.save(commit=False)
-                print(f"Found {len(operations)} operations to save")
+                
                 
                 for i, operation in enumerate(operations):
                     operation.gamme = new_gamme
@@ -431,6 +674,29 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                         )
                         photo.save()
                         print(f"  - Saved photo: {file_obj.name} (ID: {photo.id})")
+                    
+                    # Process moyen de contrôle for this operation
+                    # Get the moyen_controle value from the form
+                    moyen_controle_value = request.POST.get(f'form-{i}-moyen_controle', '').strip()
+                    if moyen_controle_value:
+                        operation.moyen_controle = moyen_controle_value
+                        print(f"  - Set moyen de contrôle: {moyen_controle_value}")
+                    
+                    # Process the many-to-many relationship if it exists
+                    if hasattr(operation, 'moyens_controle'):
+                        # Clear existing moyens de contrôle first
+                        operation.moyens_controle.clear()
+                        
+                        # Find all selected moyens de contrôle for this operation
+                        for key, value in request.POST.items():
+                            if key.startswith(f'op_{operation.id}_moyen_') and value == 'on':
+                                try:
+                                    moyen_id = int(key.split('_')[-1])
+                                    moyen = moyens_controle.objects.get(id=moyen_id)
+                                    operation.moyens_controle.add(moyen)
+                                    print(f"  - Added moyen de contrôle: {moyen.nom} (ID: {moyen.id})")
+                                except (ValueError, moyens_controle.DoesNotExist) as e:
+                                    print(f"  - Error adding moyen de contrôle: {e}")
                         
             else:
                 print("Formset errors:", operation_formset.errors)
@@ -645,9 +911,11 @@ class GammeControleCreateView(LoginRequiredMixin,View):
     def get(self, request):
         form = GammeControleForm()
         missions = MissionControle.objects.all()
+        epis = epi.objects.all().order_by('nom')
         return render(request, self.template_name, {
             'form': form,
-            'missions': missions
+            'missions': missions,
+            'epis': epis
         })
 
     def post(self, request):
@@ -809,100 +1077,373 @@ class GammeControleDeleteView(LoginRequiredMixin,DeleteView):
     success_url = reverse_lazy('Gamme:gammecontrole_list')
 
 
+from django.db import transaction
+
 class MissionControleCreateView(LoginRequiredMixin,View):
     template_name = 'gamme/missioncontrole_create.html'
 
     def get(self, request):
         mission_form = MissionControleForm()
+        moyens_list = moyens_controle.objects.all().order_by('ordre')
+        epis_list = epi.objects.all()
+        
         return render(request, self.template_name, {
             'mission_form': mission_form,
+            'moyens_controle': moyens_list,
+            'epis': epis_list,
         })
 
     def post(self, request):
-        mission_form = MissionControleForm(request.POST)
+        print("\n=== Form Submission Started ===")
+        print("=== POST data ===")
+        for key, value in request.POST.items():
+            print(f"{key}: {value}")
+            
+        print("\n=== FILES data ===")
+        for key, file in request.FILES.items():
+            print(f"{key}: {file.name} ({file.size} bytes)")
         
-        # Check if code already exists
+        # Create form instance with request data
+        mission_form = MissionControleForm(request.POST, request.FILES)
+        
+        print("\n=== Form Validation ===")
+        
+        # Check if code already exists first
         code = request.POST.get('code')
         if code and MissionControle.objects.filter(code=code).exists():
+            print("Code already exists")
             messages.error(request, "Ce code de mission existe déjà. Veuillez en choisir un autre.")
-            return render(request, self.template_name, {
+            
+            # Prepare form data for repopulation
+            form_data = {}
+            for key, value in request.POST.lists():
+                if len(value) == 1:
+                    form_data[key] = value[0]
+                else:
+                    form_data[key] = value
+            
+            # Add file data
+            for key, file in request.FILES.items():
+                form_data[key] = file.name
+            
+            context = {
                 'mission_form': mission_form,
-                'error_message': 'Ce code de mission existe déjà. Veuillez en choisir un autre.'
-            })
+                'moyens_controle': moyens_controle.objects.all().order_by('ordre'),
+                'epis': epi.objects.all(),
+                'form_data_json': json.dumps(form_data, ensure_ascii=False, default=str),
+                'form_errors': {'code': ['Ce code de mission existe déjà.']}
+            }
+            return render(request, self.template_name, context)
+        
+        # Validate the form
+        if not mission_form.is_valid():
+            print("Form errors:", mission_form.errors)
+            
+            # Print each field's value for debugging
+            print("\n=== Form Data ===")
+            for field in mission_form:
+                print(f"{field.name}:")
+                print(f"  Value: {field.value()}")
+                print(f"  Errors: {field.errors}")
+                print(f"  Required: {field.field.required}")
+                print(f"  Field type: {field.field.__class__.__name__}")
+                print(f"  Widget: {field.field.widget.__class__.__name__}")
+                
+                if hasattr(mission_form, 'cleaned_data') and field.name in mission_form.cleaned_data:
+                    print(f"  Cleaned data: {mission_form.cleaned_data[field.name]}")
+                print()
+            
+            # Prepare form data for repopulation
+            form_data = {}
+            for key, value in request.POST.lists():
+                if len(value) == 1:
+                    form_data[key] = value[0]
+                else:
+                    form_data[key] = value
+            
+            # Add file data
+            for key, file in request.FILES.items():
+                form_data[key] = file.name
+            
+            # Convert form errors to a format that's easy to display in the template
+            form_errors = {}
+            for field_name, errors in mission_form.errors.items():
+                form_errors[field_name] = errors
+            
+            context = {
+                'mission_form': mission_form,
+                'moyens_controle': moyens_controle.objects.all().order_by('ordre'),
+                'epis': epi.objects.all(),
+                'form_data_json': json.dumps(form_data, ensure_ascii=False, default=str),
+                'form_errors': form_errors  # Pass form errors to template
+            }
+            
+            # Add error messages for each field with errors
+            for field_name, errors in form_errors.items():
+                for error in errors:
+                    messages.error(request, f"{field_name}: {error}")
+            
+            return render(request, self.template_name, context)
 
-        if mission_form.is_valid():
+        print("Mission form is valid. Attempting to save mission...")
+        try:
             mission = mission_form.save(commit=False)
             mission.created_by = request.user
             mission.save()
+            print(f"Mission saved successfully. ID: {mission.id}, Code: {mission.code}")
 
-            # Il ne peut y avoir qu’une seule gamme (selon le JS)
-            intitule = request.POST.get('gamme_0_intitule')
-            if intitule:
-                statut = request.POST.get('gamme_0_statut') == 'True'
-                version = request.POST.get('gamme_0_version', '1.0')
+            # Process each gamme
+            gamme_index = 0
+            while True:
+                # Check if gamme exists in POST data
+                intitule_key = f'gamme_{gamme_index}_intitule'
+                if intitule_key not in request.POST:
+                    print(f"No more gammes found at index {gamme_index}")
+                    break  # No more gammes
+                    
+                # Check if we have a valid gamme with required fields
+                intitule = request.POST.get(intitule_key, '').strip()
+                if not intitule:
+                    print(f"Skipping empty gamme at index {gamme_index}")
+                    gamme_index += 1
+                    continue
 
-                no_incident = request.POST.get('gamme_0_no_incident', '')
+                # Extract other gamme fields
+                statut = request.POST.get(f'gamme_{gamme_index}_statut') == 'True'
+                version = request.POST.get(f'gamme_{gamme_index}_version', '1.0')
+                no_incident = request.POST.get(f'gamme_{gamme_index}_no_incident', '')
+                commentaire = request.POST.get(f'gamme_{gamme_index}_commentaire', '')
+                temps_alloue_str = request.POST.get(f'gamme_{gamme_index}_temps_alloue')
+                temps_alloue = int(temps_alloue_str) if temps_alloue_str else None
+                commentaire_identification = request.POST.get(f'gamme_{gamme_index}_commentaire_identification', '')
+                commentaire_traitement_non_conforme = request.POST.get(f'gamme_{gamme_index}_commentaire_traitement_non_conforme', '')
+                photo_traitement_non_conforme = request.FILES.get(f'gamme_{gamme_index}_photo_traitement_non_conforme')
+                picto_s = f'gamme_{gamme_index}_picto_s' in request.POST
+                picto_r = f'gamme_{gamme_index}_picto_r' in request.POST
+
+                if not intitule:
+                    messages.error(request, f"Gamme {gamme_index + 1}: L'intitulé est obligatoire.")
+                    gamme_index += 1
+                    continue
+
+                if not no_incident:
+                    messages.error(request, f"Gamme {gamme_index + 1}: Le numéro d'incident est obligatoire.")
+                    gamme_index += 1
+                    continue
+
+                # Check if statut is provided and is a valid boolean representation
+                if statut is None:
+                    messages.error(request, f"Gamme {gamme_index + 1}: Le statut est obligatoire.")
+                    gamme_index += 1
+                    continue
+
                 # Ensure gamme title follows the format 'Gamme: [Mission Title]' if it's empty or being reset
                 if not intitule or intitule.strip() == '':
                     intitule = f"Gamme: {mission.intitule}"
-                gamme = GammeControle.objects.create(
-                    mission=mission,
-                    intitule=intitule,
-                    No_incident=no_incident,
-                    statut=statut,
-                    version=version,
-                    created_by=request.user
-                )
 
-                # Lire toutes les opérations associées à cette gamme
-                operation_index = 0
-                while True:
-                    titre = request.POST.get(f'operation_0_{operation_index}_titre')
-                    if not titre:
-                        break
+                print(f"Processing Gamme {gamme_index}:")
+                print(f"  Intitule: {intitule}")
+                print(f"  Statut: {statut}")
+                print(f"  Version: {version}")
+                print(f"  No Incident: {no_incident}")
+                print(f"  Commentaire: {commentaire}")
+                print(f"  Temps Alloue: {temps_alloue}")
+                print(f"  Commentaire Identification: {commentaire_identification}")
+                print(f"  Commentaire Traitement Non Conforme: {commentaire_traitement_non_conforme}")
+                print(f"  Photo Traitement Non Conforme: {photo_traitement_non_conforme}")
+                print(f"  Picto S: {picto_s}, Picto R: {picto_r}")
 
-                    ordre = request.POST.get(f'operation_0_{operation_index}_ordre', 0)
-                    description = request.POST.get(f'operation_0_{operation_index}_description', '')
-                    criteres = request.POST.get(f'operation_0_{operation_index}_criteres', '')
-
-                    operation = OperationControle.objects.create(
-                        gamme=gamme,
-                        titre=titre,
-                        ordre=ordre,
-                        description=description,
-                        criteres=criteres,
+                try:
+                    gamme = GammeControle.objects.create(
+                        mission=mission,
+                        intitule=intitule,
+                        No_incident=no_incident,
+                        statut=statut,
+                        version=version,
+                        commantaire=commentaire,
+                        Temps_alloué=temps_alloue,
+                        commantaire_identification=commentaire_identification,
+                        commantaire_traitement_non_conforme=commentaire_traitement_non_conforme,
+                        photo_traitement_non_conforme=photo_traitement_non_conforme,
+                        picto_s=picto_s,
+                        picto_r=picto_r,
                         created_by=request.user
                     )
+                    print(f"Gamme created successfully. ID: {gamme.id}, Intitule: {gamme.intitule}")
 
-                    # Lire les photos associées à cette opération
+                    # Save selected moyens de contrôle
+                    moyen_controle_ids = request.POST.getlist(f'gamme_{gamme_index}_moyen_controle')
+                    print(f"Gamme {gamme_index} - Moyen Controle IDs: {moyen_controle_ids}")
+                    if moyen_controle_ids:
+                        selected_moyens = moyens_controle.objects.filter(id__in=moyen_controle_ids)
+                        gamme.moyens_controle.set(selected_moyens)
+
+                    # Save selected EPIs
+                    epi_ids = [v for k, v in request.POST.items()
+                             if k.startswith(f'gamme_{gamme_index}_epi_') and v != '']
+                    print(f"Gamme {gamme_index} - EPI IDs: {epi_ids}")
+                    print(f"  All EPI values: {[(k, v) for k, v in request.POST.items() if k.startswith(f'gamme_{gamme_index}_epi_')]}")
+                    for epi_id in epi_ids:
+                        try:
+                            epi_item = epi.objects.get(id=epi_id)
+                            gamme.epis.add(epi_item)
+                            print(f"  - Added EPI to gamme: {epi_item.nom} (ID: {epi_item.id})")
+                        except epi.DoesNotExist:
+                            messages.error(request, f"EPI avec l'ID {epi_id} non trouvé pour gamme {gamme_index + 1}.")
+                            print(f"  - EPI avec l'ID {epi_id} non trouvé pour gamme")
+                        except Exception as e:
+                            messages.error(request, f"Erreur lors de l'ajout de l'EPI {epi_id} à la gamme {gamme_index + 1}: {str(e)}")
+                            print(f"  - Erreur lors de l'ajout de l'EPI {epi_id} à la gamme: {str(e)}")
+
+                except Exception as e:
+                    messages.error(request, f"Erreur lors de la création de la gamme {gamme_index + 1}: {str(e)}")
+                    print(f"Error creating gamme {gamme_index + 1}: {str(e)}")
+                    gamme_index += 1
+                    continue
+                    
+                # Only increment gamme_index if we successfully processed a gamme
+                print(f"Successfully processed gamme {gamme_index + 1}, incrementing index...")
+                
+                # Store the current gamme index for processing its operations
+                current_gamme_idx = gamme_index 
+                gamme_index += 1
+
+                # Process operations for the current gamme
+                operation_index = 0
+                print(f"Processing operations for gamme {current_gamme_idx}...")
+                while True:
+                    op_titre_key = f'operation_formset-{current_gamme_idx}-{operation_index}_titre'
+                    op_titre = request.POST.get(op_titre_key)
+                    
+                    print(f"Checking operation {operation_index} with key {op_titre_key}")
+                    
+                    if not op_titre:
+                        print(f"No operation found at index {operation_index}, ending operation processing for this gamme")
+                        break
+
+                    # Use current_gamme_idx instead of gamme_index for operation form fields
+                    op_ordre = request.POST.get(f'operation_formset-{current_gamme_idx}-{operation_index}_ordre', 0)
+                    op_description = request.POST.get(f'operation_formset-{current_gamme_idx}-{operation_index}_description', '')
+                    op_criteres = request.POST.get(f'operation_formset-{current_gamme_idx}-{operation_index}_criteres', '')
+                    op_moyen_controle_text = request.POST.get(f'operation_formset-{current_gamme_idx}-{operation_index}_moyen_controle', '')
+                    op_frequence_str = request.POST.get(f'operation_formset-{gamme_index}-{operation_index}_frequence', '')
+                    op_frequence = int(op_frequence_str) if op_frequence_str.isdigit() else 1 # Default to 1 if not a valid number
+
+                    if not op_titre:
+                        messages.error(request, f"Opération {operation_index + 1} de la gamme {gamme_index + 1}: Le titre est obligatoire.")
+                        operation_index += 1
+                        continue
+
+                    try:
+                        # Check if an operation with this order already exists for this gamme
+                        existing_operation = OperationControle.objects.filter(
+                            gamme=gamme,
+                            ordre=op_ordre
+                        ).first()
+                        
+                        if existing_operation:
+                            # Update existing operation
+                            existing_operation.titre = op_titre
+                            existing_operation.description = op_description
+                            existing_operation.criteres = op_criteres
+                            existing_operation.moyen_controle = op_moyen_controle_text
+                            existing_operation.frequence = op_frequence
+                            existing_operation.save()
+                            operation = existing_operation
+                            print(f"Updated existing operation. ID: {operation.id}, Titre: {operation.titre}")
+                        else:
+                            # Create new operation
+                            operation = OperationControle.objects.create(
+                                gamme=gamme,
+                                titre=op_titre,
+                                ordre=int(op_ordre),
+                                description=op_description,
+                                criteres=op_criteres,
+                                moyen_controle=op_moyen_controle_text,
+                                frequence=op_frequence,
+                                created_by=request.user,
+                            )
+                            print(f"Operation created successfully. ID: {operation.id}, Titre: {operation.titre}")
+                        print(f"Operation created successfully. ID: {operation.id}, Titre: {operation.titre}")
+                    except Exception as e:
+                        messages.error(request, f"Erreur lors de la création de l'opération {operation_index + 1} de la gamme {gamme_index + 1}: {str(e)}")
+                        operation_index += 1
+                        continue
+                    # Save selected moyens de contrôle for the operation
+                    op_moyen_controle_ids = request.POST.getlist(f'operation_formset-{current_gamme_idx}-{operation_index}_moyens_controle')
+                    if op_moyen_controle_ids:
+                        selected_moyens = moyens_controle.objects.filter(id__in=op_moyen_controle_ids)
+                        operation.moyenscontrole.set(selected_moyens)
+
+                    # Process photos for the current operation
                     photo_index = 0
                     while True:
-                        image = request.FILES.get(f'photo_0_{operation_index}_{photo_index}_image')
-                        if not image:
+                        photo_file_key = f'photo_{current_gamme_idx}_{operation_index}_{photo_index}_image'
+                        photo_image = request.FILES.get(photo_file_key)
+
+                        if not photo_image:
+                            # No more photos to process for this operation
                             break
 
-                        photo_description = request.POST.get(
-                            f'photo_0_{operation_index}_{photo_index}_description', '')
+                        photo_description = request.POST.get(f'photo_{current_gamme_idx}_{operation_index}_{photo_index}_description', '')
+                        print(f"Processing Photo {photo_index} for Operation {operation.id}:")
+                        print(f"  File Key: {photo_file_key}")
+                        print(f"  Description: {photo_description}")
 
-                        PhotoOperation.objects.create(
-                            operation=operation,
-                            image=image,
-                            description=photo_description,
-                            created_by=request.user
-                        )
-
+                        try:
+                            photo = PhotoOperation.objects.create(
+                                operation=operation,
+                                image=photo_image,
+                                description=photo_description,
+                                created_by=request.user
+                            )
+                            print(f"Photo created successfully. ID: {photo.id}, Description: {photo.description}")
+                        except Exception as e:
+                            print(f"Error creating photo: {str(e)}")
+                            messages.error(request, f"Erreur lors de la création de la photo {photo_index + 1} de l'opération {operation_index + 1} de la gamme {current_gamme_idx + 1}: {str(e)}")
+                        
+                        # Always increment the photo index to prevent infinite loop
                         photo_index += 1
-
+                        
+                        # Safety check to prevent infinite loops
+                        if photo_index > 100:  # Reasonable upper limit
+                            print("Warning: Reached maximum number of photos per operation (100)")
+                            break
+                    
+                    # Move to next operation
                     operation_index += 1
 
-            messages.success(request, "Mission, gamme, opérations et photos enregistrées avec succès.")
+            print("=== Form Submission Completed Successfully ===")
+            messages.success(request, "Mission, gammes, opérations et photos enregistrées avec succès.")
             return redirect('Gamme:missioncontrole_list')
 
-        # Si formulaire invalide
-        messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
-        return render(request, self.template_name, {
-            'mission_form': mission_form,
-        })
+        except Exception as e:
+            print("=== Form Submission Failed ===")
+            print("Error:", str(e))
+            if not mission_form.is_valid():
+                print("Form errors:", mission_form.errors)
+            messages.error(request, f"Une erreur est survenue: {str(e)}")
+            
+            # Convert QueryDict to regular dict for JSON serialization
+            form_data = {}
+            for key, value in request.POST.lists():
+                if len(value) == 1:
+                    form_data[key] = value[0]
+                else:
+                    form_data[key] = value
+            
+            # Add file data
+            for key, file in request.FILES.items():
+                form_data[key] = file.name  # Just store the filename for display
+            
+            # Prepare context with form data as JSON
+            context = {
+                'mission_form': mission_form,
+                'moyens_controle': moyens_controle.objects.all().order_by('ordre'),
+                'epis': epi.objects.all(),
+                'form_data_json': json.dumps(form_data, ensure_ascii=False)
+            }
+            return render(request, self.template_name, context)
 
 class MissionControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = MissionControle
@@ -933,9 +1474,9 @@ class MissionControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView)
                 queryset = queryset.filter(statut=False)
         
         # Apply product filter if provided
-        produitref = self.request.GET.get('produitref')
-        if produitref:
-            queryset = queryset.filter(produitref__icontains=produitref)
+        reference = self.request.GET.get('reference')
+        if reference:
+            queryset = queryset.filter(reference__icontains=reference)
             
         return queryset.order_by('-date_creation')
 
@@ -943,12 +1484,12 @@ class MissionControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView)
         context = super().get_context_data(**kwargs)
         
         # Get unique product references for the filter dropdown
-        produits = MissionControle.objects.values_list('produitref', flat=True).distinct()
-        context['produits'] = sorted([p for p in produits if p and p.strip()])
+        references = MissionControle.objects.values_list('reference', flat=True).distinct()
+        context['references'] = sorted([r for r in references if r and r.strip()])
         
         # Add filter values to context
         context['current_statut'] = self.request.GET.get('statut', '')
-        context['current_produitref'] = self.request.GET.get('produitref', '')
+        context['current_reference'] = self.request.GET.get('reference', '')
         
         # Add user role to context for template logic
         context['is_operator'] = self.request.user.is_op
@@ -1115,6 +1656,66 @@ class OperatorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateVie
         return context
 
 
+class EpiCreateView(LoginRequiredMixin, CreateView):
+    model = epi
+    template_name = 'gamme/epi_form.html'
+    fields = ['nom', 'photo', 'commentaire']
+    success_url = reverse_lazy('Gamme:epi_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, "L'équipement de protection a été créé avec succès.")
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Ajouter un équipement de protection'
+        context['submit_text'] = 'Créer'
+        return context
+
+
+class EpiListView(LoginRequiredMixin, ListView):
+    model = epi
+    template_name = 'gamme/epi_list.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+    
+    def get_queryset(self):
+        return epi.objects.all().order_by('nom')
+
+
+class EpiUpdateView(LoginRequiredMixin, UpdateView):
+    model = epi
+    form_class = EpiForm
+    template_name = 'gamme/epi_update.html'
+    success_url = reverse_lazy('Gamme:epi_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, "L'équipement de protection a été mis à jour avec succès.")
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifier {self.object.nom}"
+        return context
+    
+    def get_success_url(self):
+        return reverse_lazy('Gamme:epi_list')
+
+
+class EpiDeleteView(LoginRequiredMixin, DeleteView):
+    model = epi
+    template_name = 'gamme/epi_confirm_delete.html'
+    success_url = reverse_lazy('Gamme:epi_list')
+    
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.photo:
+            self.object.photo.delete(save=False)
+        response = super().delete(request, *args, **kwargs)
+        messages.success(request, "L'équipement de protection a été supprimé avec succès.")
+        return response
+
+
 class UserListView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'gamme/user_list.html'
@@ -1247,7 +1848,6 @@ class ajouter_utilisateur(LoginRequiredMixin, CreateView):
         
         # Handle role selection - explicitly set all role fields
         role = self.request.POST.get('role')
-        print(f"Selected role: {role}")  # Debug log
         
         # Reset all roles first
         user.is_op = False
@@ -1257,16 +1857,12 @@ class ajouter_utilisateur(LoginRequiredMixin, CreateView):
         # Set the selected role
         if role == 'op':
             user.is_op = True
-            print("Setting role to Opérateur")  # Debug log
         elif role == 'rs':
             user.is_rs = True
-            print("Setting role to Responsable")  # Debug log
         elif role == 'ro':
             user.is_ro = True
-            print("Setting role to Responsable Opérationnel")  # Debug log
             
         user.save()
-        print(f"User saved with is_op={user.is_op}, is_rs={user.is_rs}, is_ro={user.is_ro}")  # Debug log
         
         messages.success(self.request, "L'utilisateur a été créé avec succès.")
         return redirect('Gamme:user_list')
@@ -1289,20 +1885,48 @@ def view_gamme_pdf(request, mission_id):
     # Get operations for the most recent gamme, ordered by 'ordre'
     operations_list = []
     if gamme:
-        operations_list = list(gamme.operationcontrole_set.all().order_by('ordre'))
+        print(f"\n=== DEBUG: GAMME FOUND - ID: {gamme.id}, TITLE: {gamme.intitule} ===")
+        operations_list = list(gamme.operations.all().order_by('ordre').prefetch_related('moyenscontrole'))
+        print(f"Number of operations: {len(operations_list)}")
+    else:
+        print("\n=== DEBUG: NO GAMME FOUND FOR THIS MISSION ===")
     
     operations_dict = {}
+    # Get unique moyens_controle directly from the gamme
+    unique_moyens = set()
+    
+    if gamme:
+        # Get moyens_controle directly from the gamme
+        gamme_moyens = list(gamme.moyens_controle.all())  # Using the correct field name with underscore
+        print(f"\n=== DEBUG: MOYENS FROM GAMME ===")
+        print(f"Number of moyens in gamme: {len(gamme_moyens)}")
+        for m in gamme_moyens:
+            unique_moyens.add(m)
+            print(f"  Moyen: ID={m.id}, Nom='{m.nom}', Photo={bool(m.photo)}")
+    else:
+        print("\n=== DEBUG: NO GAMME FOUND TO GET MOYENS FROM ===")
+    
     for i in range(1, 9): # Operations 1 to 8
         if i <= len(operations_list):
             op = operations_list[i-1]
+            op_moyens = list(op.moyenscontrole.all())
+            print(f"\nOperation {i} - ID: {op.id}, Description: {op.description}")
+            print(f"Number of moyens for operation {i}: {len(op_moyens)}")
+            
             operations_dict[i] = {
                 'description': op.description,
-                'photos': op.photooperation_set.all()
+                'photos': op.photooperation_set.all(),
+                'moyenscontrole': op_moyens,
+                'frequence': op.frequence,
+                'moyen_controle': op.moyen_controle
             }
         else:
             operations_dict[i] = {
                 'description': '',
-                'photos': []
+                'photos': [],
+                'moyenscontrole': [],
+                'frequence': '',
+                'moyen_controle': ''
             }
     
     # Get the RS user (Responsable de Service)
@@ -1325,33 +1949,46 @@ def view_gamme_pdf(request, mission_id):
     if gamme and hasattr(gamme, 'photodefaut_set'):
         photo_defauts = gamme.photodefaut_set.all().order_by('date_ajout')
     
+    # Format the allocated time with a default value if not set
+    temps_alloue = ''
+    if gamme and hasattr(gamme, 'Temps_alloué') and gamme.Temps_alloué is not None:
+        temps_alloue = str(gamme.Temps_alloué)
+    
+    # Convert set to list and sort by ordre
+    unique_moyens_list = sorted(unique_moyens, key=lambda x: x.ordre if hasattr(x, 'ordre') else 0)
+    
+    # Debug: Print the unique moyens to console
+    print(f"Unique moyens to display: {[m.nom for m in unique_moyens_list]}")
+    
+    # Get EPIs for the gamme
+    epis = []
+    if gamme:
+        epis = list(gamme.epis.all())
+        print(f"EPIs to display: {[e.nom for e in epis]}")
+    
     context = {
         'mission': mission,
-        'gammecontrole': gamme,  # Add gamme object as gammecontrole for the template
+        'gammecontrole': gamme,
         'operations': operations_dict,
+        'unique_moyens': unique_moyens_list,  # Add unique moyens to context
         'title': f'Gamme - {mission.intitule}',
         'rs_user': rs_user,
         'ro_user': ro_user,
         'photo_defauts': photo_defauts,
+        'temps_alloue': temps_alloue,
         'static_defect_photos': [
             {'image_path': '1.jpg', 'title': 'Défaut de surface'},
             {'image_path': '2.jpg', 'title': 'Défaut d\'assemblage'},
             {'image_path': 'logo.jpg', 'title': 'Défaut de marquage'},
-        ]
+        ],
+        'epis': epis  # Add EPIs to the context
     }
     
     # Render the HTML view with jsPDF for client-side PDF generation
     return render(request, 'gamme/gamme_pdf.html', context)
 
 
-import logging
-import json
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
+
 
 logger = logging.getLogger(__name__)
 
@@ -1441,6 +2078,71 @@ def delete_photo_defaut(request, photo_id):
     except Exception as e:
         logger.error(f'Error deleting defect photo: {str(e)}', exc_info=True)
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+class MoyenControleListView(LoginRequiredMixin, ListView):
+    model = moyens_controle
+    template_name = 'gamme/moyenscontrole_list.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+    
+    def get_queryset(self):
+        return moyens_controle.objects.all().order_by('ordre', 'nom')
+
+
+class MoyenControleCreateView(LoginRequiredMixin, CreateView):
+    model = moyens_controle
+    form_class = MoyenControleForm
+    template_name = 'gamme/moyenscontrole_create.html'
+    
+    def get_success_url(self):
+        messages.success(self.request, "Le moyen de contrôle a été créé avec succès.")
+        return reverse('Gamme:moyencontrole_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Ajouter un moyen de contrôle'
+        return context
+
+
+class MoyenControleUpdateView(LoginRequiredMixin, UpdateView):
+    model = moyens_controle
+    form_class = MoyenControleForm
+    template_name = 'gamme/moyenscontrole_update.html'
+    
+    def get_success_url(self):
+        messages.success(self.request, "Le moyen de contrôle a été mis à jour avec succès.")
+        return reverse('Gamme:moyencontrole_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifier {self.object.nom}"
+        return context
+
+
+class MoyenControleDeleteView(LoginRequiredMixin, DeleteView):
+    model = moyens_controle
+    template_name = 'gamme/moyenscontrole_delete.html'
+    
+    def get_success_url(self):
+        messages.success(self.request, "Le moyen de contrôle a été supprimé avec succès.")
+        return reverse('Gamme:moyencontrole_list')
+    
+    def delete(self, request, *args, **kwargs):
+        response = super().delete(request, *args, **kwargs)
+        return response
+
+
+from django.http import JsonResponse
+from .models import MissionControle
+
+def check_mission_code(request):
+    code = request.GET.get('code', None)
+    if code is not None:
+        exists = MissionControle.objects.filter(code=code).exists()
+        return JsonResponse({'exists': exists})
+    return JsonResponse({'exists': False})
+
+
 
 def save_mission_pdf(request, mission_id):
     """View to save an uploaded PDF file to the MissionControle model.

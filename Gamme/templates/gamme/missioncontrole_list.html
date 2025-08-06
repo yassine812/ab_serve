@@ -39,11 +39,11 @@
                         </select>
                     </div>
                     <div class="col-4">
-                        <select name="produitref" class="form-select form-select-sm">
-                            <option value="">Tous les produits</option>
-                            {% for produit in produits %}
-                            <option value="{{ produit }}" {% if current_produitref == produit %}selected{% endif %}>
-                                {{ produit }}
+                        <select name="reference" class="form-select form-select-sm">
+                            <option value="">Toutes les références</option>
+                            {% for ref in references %}
+                            <option value="{{ ref }}" {% if current_reference == ref %}selected{% endif %}>
+                                {{ ref }}
                             </option>
                             {% endfor %}
                         </select>
@@ -72,7 +72,7 @@
                 <tr>
                     <th class="align-middle text-center">Code</th>
                     <th class="align-middle">Intitulé</th>
-                    <th class="align-middle">Produit Réf.</th>
+                    <th class="align-middle">Référence</th>
                     <th class="align-middle">Description</th>
                     <th class="align-middle text-center">Statut</th>
                     <th class="align-middle text-center">Date Création</th>
@@ -84,7 +84,7 @@
                 <tr>
                     <td class="align-middle text-center">{{ mission.code }}</td>
                     <td class="align-middle">{{ mission.intitule }}</td>
-                    <td class="align-middle">{{ mission.produitref }}</td>
+                    <td class="align-middle">{{ mission.reference }}</td>
                     <td class="align-middle">{{ mission.description|truncatewords:10 }}</td>
                     <td class="align-middle text-center">
                         {% if mission.statut %}
