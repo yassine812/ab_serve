@@ -2158,7 +2158,51 @@ class MoyenControleDeleteView(LoginRequiredMixin, DeleteView):
 
 
 from django.http import JsonResponse
-from .models import MissionControle
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+from .models import MissionControle, validation, OperationControle
+from django.db import transaction
+
+@require_http_methods(["POST"])
+@csrf_exempt
+@login_required
+def validate_gamme(request, gamme_id):
+    """
+    API endpoint to validate a gamme by creating a single validation record for the entire gamme.
+    """
+    try:
+        # Get the gamme
+        from .models import GammeControle
+        gamme = get_object_or_404(GammeControle, id=gamme_id)
+        
+        # Create a single validation record for the gamme
+        with transaction.atomic():
+            # Update gamme status to validated
+            gamme.statut = True
+            gamme.save()
+            
+            # Create a validation record for the gamme
+            validation.objects.create(
+                gamme=gamme,
+                user_ro=request.user,
+                date_validation_user_ro=timezone.now(),
+                commentaire=f"Gamme validée le {timezone.now().strftime('%d/%m/%Y à %H:%M')}"
+            )
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Gamme validée avec succès !',
+            'gamme_id': gamme.id,
+            'validated_at': timezone.now().strftime('%d/%m/%Y à %H:%M'),
+            'validated_by': request.user.get_full_name() or request.user.username
+        })
+        
+    except Exception as e:
+        logger.error(f"Error validating gamme {gamme_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 def check_mission_code(request):
     code = request.GET.get('code', None)

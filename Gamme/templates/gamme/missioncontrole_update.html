@@ -257,6 +257,58 @@
                     <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#photoDefautModal{{ gamme.id }}">
                       <i class="bi bi-camera"></i> ajouter des images de defaut
                     </button>
+                    {% if gamme.validations.exists %}
+                      <button type="button" class="btn btn-sm btn-success" disabled>
+                        <i class="bi bi-check-circle-fill"></i> Validée le {{ gamme.validations.first.date_validation_user_ro|date:"d/m/Y H:i" }}
+                      </button>
+                    {% else %}
+                      {%if user.is_superuser %}
+                      <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#confirmValidationModal{{ gamme.id }}">
+                        <i class="bi bi-check-circle"></i> Valider
+                      </button>
+                      {% endif %}
+                    {% endif %}
+                    
+                    <!-- Confirmation Modal -->
+                    <div class="modal fade" id="confirmValidationModal{{ gamme.id }}" tabindex="-1" aria-labelledby="confirmValidationModalLabel{{ gamme.id }}" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title" id="confirmValidationModalLabel{{ gamme.id }}"><i class="bi bi-check-circle me-2"></i>Confirmer la validation</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                          </div>
+                          <div class="modal-body">
+                            <p>Vous êtes sur le point de valider définitivement la gamme :</p>
+                            <div class="card bg-light mb-3">
+                              <div class="card-body">
+                                <h6 class="card-title">{{ gamme.intitule }}</h6>
+                                <p class="card-text mb-0">
+                                  <small class="text-muted">
+                                    Version {{ gamme.version }}
+                                    {% if gamme.validations.exists %}
+                                      <br>Dernière validation : {{ gamme.validations.first.date_validation_user_ro|date:"d/m/Y H:i" }}
+                                    {% endif %}
+                                  </small>
+                                </p>
+                              </div>
+                            </div>
+                            <div class="alert alert-warning">
+                              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                              Cette action est irréversible. La gamme sera marquée comme validée.
+                            </div>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                              <i class="bi bi-x-circle me-1"></i> Annuler
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="validateGamme('{{ gamme.id }}')" id="confirmValidateBtn{{ gamme.id }}">
+                              <i class="bi bi-check-circle me-1"></i> Confirmer la validation
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
                   </div>
 
                   <!-- Modifier gamme -->
@@ -1869,6 +1921,88 @@
       }
     }
   });
+
+  // Function to handle gamme validation
+  function validateGamme(gammeId) {
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('confirmValidationModal' + gammeId));
+    if (modal) {
+      modal.hide();
+    }
+    
+    // Show loading state
+    const validateBtn = document.querySelector(`#confirmValidationModal${gammeId} .btn-success`);
+    const originalBtnText = validateBtn.innerHTML;
+    validateBtn.disabled = true;
+    validateBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Validation en cours...';
+    
+    // Call the validation endpoint
+    fetch(`/gamme/gamme/${gammeId}/validate/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest',
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(err => { throw err; });
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        // Show success message
+        const toast = new bootstrap.Toast(document.getElementById('toastSuccess'));
+        document.getElementById('toastSuccessMessage').textContent = data.message || 'Gamme validée avec succès !';
+        toast.show();
+        
+        // Reload the page after a short delay to show the toast
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        throw new Error(data.error || 'Erreur inconnue lors de la validation');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      
+      // Show error message
+      const toast = new bootstrap.Toast(document.getElementById('toastError'));
+      document.getElementById('toastErrorMessage').textContent = 'Erreur: ' + (error.message || 'Une erreur est survenue lors de la validation');
+      toast.show();
+      
+      // Re-enable the button
+      validateBtn.disabled = false;
+      validateBtn.innerHTML = originalBtnText;
+    });
+  }
 </script>
+
+<!-- Toast Notifications -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <!-- Success Toast -->
+  <div id="toastSuccess" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+    <div class="toast-header bg-success text-white">
+      <strong class="me-auto">Succès</strong>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="toastSuccessMessage">
+      Opération effectuée avec succès.
+    </div>
+  </div>
+  
+  <!-- Error Toast -->
+  <div id="toastError" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+    <div class="toast-header bg-danger text-white">
+      <strong class="me-auto">Erreur</strong>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="toastErrorMessage">
+      Une erreur est survenue lors de l'opération.
+    </div>
+  </div>
+</div>
 
 {% endblock %}

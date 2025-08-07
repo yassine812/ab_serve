@@ -161,15 +161,41 @@ class Profile(models.Model):
 
 class validation(models.Model):
     id_validation = models.AutoField(primary_key=True)
-    operation = models.ForeignKey('OperationControle', on_delete=models.CASCADE, related_name='validations')
+    operation = models.ForeignKey('OperationControle', on_delete=models.CASCADE, related_name='validations', null=True, blank=True)
+    gamme = models.ForeignKey('GammeControle', on_delete=models.CASCADE, related_name='validations', null=True, blank=True)
     user_ro = models.ForeignKey(User, on_delete=models.CASCADE, related_name='validations_ro')
     date_validation_user_ro = models.DateTimeField(auto_now_add=True)
     user_clt = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='validations_clt', null=True, blank=True)
     date_validation_user_clt = models.DateTimeField(null=True, blank=True)
     commentaire = models.TextField(blank=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(operation__isnull=False) | models.Q(gamme__isnull=False)
+                ) & ~models.Q(operation__isnull=False, gamme__isnull=False),
+                name='only_one_validation_target',
+                violation_error_message='Une validation doit être liée soit à une opération, soit à une gamme, mais pas aux deux.'
+            )
+        ]
+        verbose_name = 'Validation'
+        verbose_name_plural = 'Validations'
+
+    def clean(self):
+        if not self.operation and not self.gamme:
+            raise ValidationError('Une validation doit être liée à une opération ou à une gamme.')
+        if self.operation and self.gamme:
+            raise ValidationError('Une validation ne peut pas être liée à la fois à une opération et à une gamme.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Validation {self.id_validation} - {self.operation}"
+        if self.gamme:
+            return f"Validation gamme {self.gamme.intitule} - {self.user_ro} - {self.date_validation_user_ro.strftime('%d/%m/%Y %H:%M')}"
+        return f"Validation opération {self.operation} - {self.user_ro} - {self.date_validation_user_ro.strftime('%d/%m/%Y %H:%M')}"
 
 # ----------- EPI (Équipement de Protection Individuelle) -----------
 
