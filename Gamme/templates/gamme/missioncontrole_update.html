@@ -505,7 +505,7 @@
                           </div>
                           <div>
                             <label class="form-label">Ordre</label>
-                            <input type="number" class="form-control" name="newop_{{ gamme.id }}_0_ordre">
+                            <input type="number" class="form-control" name="newop_{{ gamme.id }}_0_ordre" value="{{ gamme.next_order }}" min="1">
                           </div>
                           <div>
                             <label class="form-label">Description</label>

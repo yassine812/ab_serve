@@ -48,10 +48,15 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
             'moyens_controle'  # Prefetch moyens_controle for each gamme
         ).order_by('-date_mise_a_jour')
         
-        # Add a flag to each gamme to indicate if it's active
+        # Add a flag to each gamme to indicate if it's active and calculate next order
         for gamme in gammes:
             gamme.is_active = gamme.statut
-        
+            # Calculate next order number based on current gamme's operations
+            max_order = gamme.operations.aggregate(Max('ordre'))['ordre__max']
+            if max_order is not None:
+                gamme.next_order = (int(max_order) - 1) + 1  # This simplifies to just max_order
+            else:
+                gamme.next_order = 1
         
         # Get moyens de contrôle ordered by 'ordre'
         moyens_controle_list = moyens_controle.objects.all().order_by('ordre')
