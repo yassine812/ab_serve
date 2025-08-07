@@ -430,87 +430,25 @@
                     <th style="width: 400px; min-width: 400px; max-width: 400px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word; white-space: normal;">SCHEMAS, PHOTOS, DESCRIPTION</th>
                 </tr>
 
-                <!-- FIXED 1 TO 8 -->
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">1</td>  
-                    <td style="text-align: center;">{{ operations.1.description }}</td>
-                    <td style="text-align: center;">{{ operations.1.frequence }} {{ operations.1.moyen_controle }}</td>
-                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 135px;">
-                        {% for photo in operations.1.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">2</td>
-                    <td style="text-align: center;">{{ operations.2.description }}</td>
-                    <td style="text-align: center;">{{ operations.2.frequence }} {{ operations.2.moyen_controle }}</td>
-                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
-                        {% for photo in operations.2.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">3</td>
-                    <td style="text-align: center;">{{ operations.3.description }}</td>
-                    <td style="text-align: center;">{{ operations.3.frequence }} {{ operations.3.moyen_controle }}</td>
-                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
-                        {% for photo in operations.3.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">4</td>
-                    <td style="text-align: center;">{{ operations.4.description }}</td>
-                    <td style="text-align: center;">{{ operations.4.frequence }} {{ operations.4.moyen_controle }}</td>
-                    <td style="vertical-align: top; min-height: 135px;">
-                        {% for photo in operations.4.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">5</td>
-                    <td style="text-align: center;">{{ operations.5.description }}</td>
-                    <td style="text-align: center;">{{ operations.5.frequence }} {{ operations.5.moyen_controle }}</td>
-                    <td style="vertical-align: top;">
-                        {% for photo in operations.5.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">6</td>
-                    <td style="text-align: center;">{{ operations.6.description }}</td>
-                    <td style="text-align: center;">{{ operations.6.frequence }} {{ operations.6.moyen_controle }}</td>
-                    <td style="vertical-align: top; display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 90px;">
-                        {% for photo in operations.6.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; margin-right: 5px; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">7</td>
-                    <td style="text-align: center;">{{ operations.7.description }}</td>
-                    <td style="text-align: center;">{{ operations.7.frequence }} {{ operations.7.moyen_controle }}</td>
-                    <td style="min-height: 135px;">
-                        {% for photo in operations.7.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
-                <tr style="height: 70px;">
-                    <td style="text-align: center;">8</td>
-                    <td style="text-align: center;">{{ operations.8.description }}</td>
-                    <td style="text-align: center;">{{ operations.8.frequence }} {{ operations.8.moyen_controle }}</td>
-                    <td style="min-height: 135px;">
-                        {% for photo in operations.8.photos %}
-                            <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; display: block; margin-bottom: 5px;">
-                        {% endfor %}
-                    </td>
-                </tr>
+                <!-- Dynamic Operations -->
+                {% for op_num, op in operations.items %}
+                    {% if op.description or op.photos %}
+                    <tr style="height: 70px;">
+                        <td style="text-align: center;">{{ forloop.counter }}</td>
+                        <td style="text-align: center;">{{ op.description|default:'' }}</td>
+                        <td style="text-align: center;">
+                            {% if op.frequence or op.moyen_controle %}
+                                {{ op.frequence|default:'' }} {{ op.moyen_controle|default:'' }}
+                            {% endif %}
+                        </td>
+                        <td style="vertical-align: top; {% if op.photos|length > 1 %}display: flex; flex-wrap: wrap; align-items: flex-start;{% endif %} min-height: 90px;">
+                            {% for photo in op.photos %}
+                                <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; {% if op.photos|length > 1 %}margin-right: 5px;{% endif %} margin-bottom: 5px;">
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
             </table>
 
             <!-- APPROVAL TABLE -->

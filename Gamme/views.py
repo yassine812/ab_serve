@@ -1967,28 +1967,19 @@ def view_gamme_pdf(request, mission_id):
     else:
         print("\n=== DEBUG: NO GAMME FOUND TO GET MOYENS FROM ===")
     
-    for i in range(1, 9): # Operations 1 to 8
-        if i <= len(operations_list):
-            op = operations_list[i-1]
-            op_moyens = list(op.moyenscontrole.all())
-            print(f"\nOperation {i} - ID: {op.id}, Description: {op.description}")
-            print(f"Number of moyens for operation {i}: {len(op_moyens)}")
-            
-            operations_dict[i] = {
-                'description': op.description,
-                'photos': op.photooperation_set.all(),
-                'moyenscontrole': op_moyens,
-                'frequence': op.frequence,
-                'moyen_controle': op.moyen_controle
-            }
-        else:
-            operations_dict[i] = {
-                'description': '',
-                'photos': [],
-                'moyenscontrole': [],
-                'frequence': '',
-                'moyen_controle': ''
-            }
+    # Only include operations that have data
+    for i, op in enumerate(operations_list, 1):
+        op_moyens = list(op.moyenscontrole.all())
+        print(f"\nOperation {i} - ID: {op.id}, Description: {op.description}")
+        print(f"Number of moyens for operation {i}: {len(op_moyens)}")
+        
+        operations_dict[i] = {
+            'description': op.description,
+            'photos': op.photooperation_set.all(),
+            'moyenscontrole': op_moyens,
+            'frequence': op.frequence,
+            'moyen_controle': op.moyen_controle
+        }
     
     # Get the RS user (Responsable de Service)
     rs_user = User.objects.filter(is_rs=True).first()
