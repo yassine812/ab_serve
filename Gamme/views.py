@@ -84,6 +84,9 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
             missioncontrole.intitule = request.POST.get('intitule', missioncontrole.intitule)
             missioncontrole.reference = request.POST.get('reference', missioncontrole.reference)
             missioncontrole.statut = request.POST.get('statut', str(missioncontrole.statut)) == 'True'
+            missioncontrole.client = request.POST.get('client', missioncontrole.client or '')
+            missioncontrole.designation = request.POST.get('designation', missioncontrole.designation or '')
+            missioncontrole.section = request.POST.get('section', missioncontrole.section or '')
             missioncontrole.save()
 
             # --- Mise à jour des gammes et opérations ---

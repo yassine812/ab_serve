@@ -75,6 +75,7 @@
                     <th class="align-middle">Référence</th>
                     <th class="align-middle">Description</th>
                     <th class="align-middle text-center">Statut</th>
+                    <th class="align-middle text-center">Gamme PDF</th>
                     <th class="align-middle text-center">Date Création</th>
                     {% if not is_operator %}<th class="align-middle text-center">Actions</th>{% endif %}
                 </tr>
@@ -91,6 +92,15 @@
                         <span class="badge bg-success">Actif</span>
                         {% else %}
                         <span class="badge bg-danger">Inactif</span>
+                        {% endif %}
+                    </td>
+                    <td class="align-middle text-center">
+                        {% if mission.pdf_file %}
+                            <a href="{{ mission.pdf_file.url }}?v={{ mission.updated_at|date:'U' }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-file-pdf"></i> Voir PDF
+                            </a>
+                        {% else %}
+                            <span class="text-muted">Aucun fichier</span>
                         {% endif %}
                     </td>
                     <td class="align-middle text-center">{{ mission.date_creation|date:"d/m/Y H:i" }}</td>
