@@ -1908,7 +1908,40 @@ def view_gamme_pdf(request, mission_id):
     mission = get_object_or_404(MissionControle, id=mission_id)
     
     # Get the most recent gamme for this mission
-    gamme = mission.gammes.order_by('-date_creation').first()
+    gamme = mission.gammes.filter(statut=True).order_by('-version_num').first()
+    if not gamme:
+        raise Http404("Aucune gamme active trouvée pour cette mission.")
+    
+    # Get the RS user (the one who created the gamme)
+    rs_user = gamme.created_by
+    creator_name = rs_user.get_full_name() or rs_user.username
+    # Determine the creator's role based on user permissions
+    if rs_user.is_ro:
+        creator_role = 'Responsable Opérationnel (RO)'
+    elif rs_user.is_rs:
+        creator_role = 'Responsable Site (RS)'
+    elif rs_user.is_admin:
+        creator_role = 'Administrateur'
+    else:
+        creator_role = 'Utilisateur'
+    validator_name = None
+    validator_role = 'RO'  # Default role
+    validation_date = None
+    if gamme and hasattr(gamme, 'validations'):
+        validation_record = gamme.validations.order_by('-date_validation_user_ro').first()
+        if validation_record and hasattr(validation_record, 'user_ro'):
+            user = validation_record.user_ro
+            validator_name = user.get_full_name() or user.username
+            # Get the validation date
+            if validation_record.date_validation_user_ro:
+                validation_date = validation_record.date_validation_user_ro
+            # Determine the role based on user permissions
+            if user.is_ro:
+                validator_role = 'Responsable Opérationnel (RO)'
+            elif user.is_rs:
+                validator_role = 'Responsable Site (RS)'
+            elif user.is_admin:
+                validator_role = 'Administrateur'
     
     # Get operations for the most recent gamme, ordered by 'ordre'
     operations_list = []
@@ -2009,7 +2042,13 @@ def view_gamme_pdf(request, mission_id):
             {'image_path': '2.jpg', 'title': 'Défaut d\'assemblage'},
             {'image_path': 'logo.jpg', 'title': 'Défaut de marquage'},
         ],
-        'epis': epis  # Add EPIs to the context
+        'epis': epis,  # Add EPIs to the context
+        'validator_name': validator_name,  # Add validator's name to the context
+        'validator_role': validator_role,  # Add validator's role to the context
+        'validation_date': validation_date,  # Add validation date to the context
+        'creator_name': creator_name,  # Add creator's name to the context
+        'creator_role': creator_role,  # Add creator's role to the context
+        'gamme_creation_date': gamme.date_creation  # Add gamme creation date to the context
     }
     
     # Render the HTML view with jsPDF for client-side PDF generation
