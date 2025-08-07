@@ -159,10 +159,33 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 # Si changement → créer nouvelle version de la gamme
                 if changement_detecte:
                     changes_made = True
-                    previous_versions = GammeControle.objects.filter(mission=missioncontrole, intitule=gamme.intitule).order_by('-version')
-                    latest_version = float(previous_versions.first().version) if previous_versions.exists() else 1.0
-                    previous_versions.update(statut=False)
+                    # Get the latest version number
+                    latest_version = float(gamme.version) if gamme.version else 1.0
                     next_version = round(latest_version + 0.1, 1)
+                    
+                    # First, check if we already have an inactive version with this version number
+                    existing_version = GammeControle.objects.filter(
+                        mission=missioncontrole,
+                        intitule=gamme.intitule,
+                        version=str(next_version)
+                    ).exists()
+                    
+                    # Only proceed if we don't already have this version
+                    if not existing_version:
+                        with transaction.atomic():
+                            # Mark all versions of this gamme as inactive
+                            GammeControle.objects.filter(
+                                mission=missioncontrole, 
+                                intitule=gamme.intitule,
+                                statut=True  # Only mark active versions as inactive
+                            ).update(statut=False)
+                            
+                            # Mark the current gamme as inactive
+                            gamme.statut = False
+                            gamme.save()
+                    else:
+                        # Skip creating a new version if it already exists
+                        continue
 
                     no_incident = request.POST.get(f'{gamme.id}-No_incident', gamme.No_incident)
                     # Get the new fields
@@ -178,9 +201,6 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     
                     picto_s = request.POST.get(f'{gamme.id}-picto_s') == 'on'
                     picto_r = request.POST.get(f'{gamme.id}-picto_r') == 'on'
-                    
-                    # First, set all previous versions to inactive
-                    GammeControle.objects.filter(mission=missioncontrole, intitule=gamme.intitule).update(statut=False)
                     
                     # Create new gamme with statut=True
                     new_gamme = GammeControle.objects.create(
@@ -2223,4 +2243,3 @@ def save_mission_pdf(request, mission_id):
             'success': False,
             'error': str(e)
         }, status=500)
-
