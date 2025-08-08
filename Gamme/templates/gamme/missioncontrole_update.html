@@ -1058,7 +1058,7 @@
         
         <h6>Photos existantes</h6>
         <div id="existingPhotos{{ gamme.id }}" class="row g-2">
-          {% for photo in gamme.defaut_photos.all %}
+          {% for photo in photo_defauts %}
           <div class="col-md-3 col-6">
             <div class="card h-100">
               <div class="position-relative" style="height: 120px; overflow: hidden;">
@@ -1628,6 +1628,7 @@
       const formData = new FormData(this);
       const gammeId = formData.get('gamme_id');
       const statusEl = document.getElementById(`uploadStatus${gammeId}`);
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
       
       statusEl.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Chargement...</span></div> Téléchargement...';
       
@@ -1637,7 +1638,9 @@
         body: formData,
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken,
         },
+        credentials: 'same-origin'
       })
       .then(response => response.json())
       .then(data => {
@@ -1663,6 +1666,7 @@
     const card = btn.closest('.col-md-3');
     card.style.opacity = '0.5';
     
+    // Use the correct URL pattern from Django URL configuration
     fetch(`/gamme/photo-defaut/${photoId}/delete/`, {
       method: 'POST',
       headers: {
@@ -1798,13 +1802,6 @@
   
   // Add form submission handler
   document.getElementById('missionForm').addEventListener('submit', submitForm);
-
-  // Close zoom overlay by clicking outside image or description
-  document.getElementById('photoZoom').addEventListener('click', function(e) {
-    if(e.target === this) {
-      closeZoom();
-    }
-  });
 
   function checkForDuplicateOrders() {
     const orderValues = new Map(); // Map to store order values and their input elements

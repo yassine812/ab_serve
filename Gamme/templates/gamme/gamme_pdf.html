@@ -11,82 +11,88 @@
 
         async function downloadPDF() {
             const downloadBtn = document.querySelector('.btn-pdf');
+            if (!downloadBtn) {
+                console.error('Download button not found');
+                return;
+            }
+            
             const originalText = downloadBtn.innerHTML;
             downloadBtn.disabled = true;
             downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération...';
 
             try {
                 console.log("Starting PDF generation...");
-                
-                // Set up the PDF with landscape orientation
+                const element = document.getElementById('pdf-content');
+                if (!element) {
+                    throw new Error('PDF content element not found');
+                }
+
+                // Show a loading indicator
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.style.position = 'fixed';
+                loadingIndicator.style.top = '50%';
+                loadingIndicator.style.left = '50%';
+                loadingIndicator.style.transform = 'translate(-50%, -50%)';
+                loadingIndicator.style.padding = '20px';
+                loadingIndicator.style.background = 'rgba(0,0,0,0.7)';
+                loadingIndicator.style.color = 'white';
+                loadingIndicator.style.borderRadius = '5px';
+                loadingIndicator.style.zIndex = '9999';
+                loadingIndicator.innerHTML = 'Génération du PDF en cours...';
+                document.body.appendChild(loadingIndicator);
+
+                // Create PDF in landscape mode
                 const pdf = new jsPDF({
                     orientation: 'landscape',
                     unit: 'mm',
                     format: 'a4'
                 });
 
-                // Get the page dimensions
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-                console.log("PDF page dimensions:", pageWidth, "x", pageHeight, "mm");
-
-                // Get the content to convert to PDF
-                const element = document.querySelector('.pdf-content');
-                if (!element) {
-                    throw new Error("Element .pdf-content not found");
-                }
-
-                // Calculate scale factor to make content larger
-                const scaleFactor = 4.0; // Increased from 1.5 to 2.0 for larger content
-                
-                // Create a container for the content
-                const container = document.createElement('div');
-                container.style.position = 'absolute';
-                container.style.left = '-9999px';
-                container.style.width = (pageWidth * scaleFactor) + 'mm';
-                container.style.background = 'white';
-                container.style.padding = '0';
-                container.style.margin = '0';
-                container.style.boxSizing = 'border-box';
-                container.style.transformOrigin = 'top left';
-                container.style.transform = 'scale(' + (1/scaleFactor) + ')';
-                
-                // Clone and style the content
-                const contentClone = element.cloneNode(true);
-                contentClone.style.width = (pageWidth * scaleFactor) + 'mm';
-                contentClone.style.margin = '0';
-                contentClone.style.padding = '0';
-                contentClone.style.boxSizing = 'border-box';
-                contentClone.style.transform = 'scale(' + scaleFactor + ')';
-                contentClone.style.transformOrigin = 'top left';
-                
-                container.appendChild(contentClone);
-                document.body.appendChild(container);
-
-                // Convert the content to an image with higher scale
-                const canvas = await html2canvas(container, {
-                    scale: 4, // Increased scale for even better quality
+                // Use html2canvas with better options
+                const canvas = await html2canvas(element, {
+                    scale: 1.5,  // Slightly lower scale for better performance
                     useCORS: true,
                     logging: true,
-                    width: pageWidth * scaleFactor,
-                    windowWidth: pageWidth * scaleFactor,
+                    backgroundColor: '#ffffff',
                     scrollX: 0,
                     scrollY: 0,
-                    letterRendering: true,
                     allowTaint: true,
-                    scale: 3 // Ensure high resolution
+                    onclone: function(clonedDoc) {
+                        // Make sure all images are loaded
+                        const images = clonedDoc.images;
+                        for (let i = 0; i < images.length; i++) {
+                            if (!images[i].complete) {
+                                images[i].style.visibility = 'hidden';
+                            }
+                        }
+                    }
                 });
 
-                // Clean up
-                document.body.removeChild(container);
+                // Calculate dimensions to fit the page
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = pageWidth - 20; // 10mm margins on each side
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                // Add the image to the PDF
+                pdf.addImage(
+                    canvas.toDataURL('image/png', 0.9), // 0.9 quality for smaller file size
+                    'PNG',
+                    10, // x position (10mm margin)
+                    10, // y position (10mm from top)
+                    imgWidth,
+                    imgHeight
+                );
 
-                // Add the image to the PDF, filling the entire page
-                const imgData = canvas.toDataURL('image/png');
-                pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, '', 'FAST');
+                // Remove loading indicator
+                document.body.removeChild(loadingIndicator);
                 
                 // Save the PDF
                 pdf.save('gamme-{{ mission.code }}.pdf');
-                console.log("PDF saved successfully in landscape mode");
+                console.log("PDF saved successfully");
+                
+                // Clean up
+                document.body.removeChild(tempContainer);
 
             } catch (error) {
                 console.error('Error generating PDF:', error);
@@ -120,9 +126,12 @@
             position: absolute !important;
             left: -9999px !important;
             top: 0 !important;
-            width: 1123px !important;
+            width: 1584px !important;
             height: auto !important;
             overflow: visible !important;
+            background: white !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
         }
         
         #pdf-content .pdf-container {
@@ -208,6 +217,26 @@
         }
     </style>
     <style>
+        /* Photo cell styles */
+        .photo-cell {
+            vertical-align: top;
+            min-height: 90px;
+        }
+        .photo-cell.multiple-photos {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+        .photo {
+            max-width: 250px;
+            max-height: 250px;
+            margin-bottom: 5px;
+        }
+        .photo.multiple {
+            margin-right: 5px;
+        }
+        
+        /* Table styles */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -236,8 +265,8 @@
             text-align: center;
         }
         .second-col {
-            width: 300px;
-            min-width: 500px;
+            width: 400px;
+            min-width: 400px;
             text-align: left;
             padding-left: 10px;
             font-size: 1em;
@@ -260,16 +289,16 @@
             height: 30px;
         }
         .third-col {
-            width: 110px;
+            width: 200px;
             min-width: 200px;
             position: relative;
             border-left: 1px solid #000;
             padding-left: 10px;
         }
         .fourth-col {
-            width: 120px;
+            width: 200px;
             min-width: 200px;
-            padding: 2px 5px;
+            padding: 5px 10px;
             border-left: none;
             position: relative;
         }
@@ -280,9 +309,9 @@
 </head>
 <body style="height: 100%; margin: 0; padding: 0;">
     <!-- This container will be used for PDF generation -->
-    <div id="pdf-content" style="position: absolute; left: -9999px; top: 0; width: 1123px; /* A4 width in pixels at 96dpi */">
+    <div id="pdf-content" style="position: relative; width: 1584px; margin: 0 auto; background: white; padding: 20px; box-sizing: border-box;">
         <div class="pdf-content-wrapper">
-            <!-- Your content will be cloned here for PDF generation -->
+            <!-- Main content will be rendered here -->
         </div>
     </div>
 
@@ -441,9 +470,9 @@
                                 {{ op.frequence|default:'' }} {{ op.moyen_controle|default:'' }}
                             {% endif %}
                         </td>
-                        <td style="vertical-align: top; {% if op.photos|length > 1 %}display: flex; flex-wrap: wrap; align-items: flex-start;{% endif %} min-height: 90px;">
+                        <td class="photo-cell{% if op.photos|length > 1 %} multiple-photos{% endif %}">
                             {% for photo in op.photos %}
-                                <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; {% if op.photos|length > 1 %}margin-right: 5px;{% endif %} margin-bottom: 5px;">
+                                <img src="{{ photo.image.url }}" class="photo{% if op.photos|length > 1 %} multiple{% endif %}">
                             {% endfor %}
                         </td>
                     </tr>
@@ -599,9 +628,13 @@
         </div>
        
         <div style="padding: 20px;">
+            <div style="background-color: #f8f9fa; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd;">
+                <strong>Photos des Défauts</strong><br>
+                Nombre de photos: {{ photo_defauts|length }}
+            </div>
             <table style="width:100%;border-collapse:collapse">
-                {% if gammecontrole and gammecontrole.defaut_photos.all %}
-                    {% for photo in gammecontrole.defaut_photos.all %}
+                {% if photo_defauts %}
+                    {% for photo in photo_defauts %}
                         {% if forloop.counter0|divisibleby:3 %}
                             {% if not forloop.first %}</tr>{% endif %}
                             <tr>

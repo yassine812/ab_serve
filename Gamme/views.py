@@ -23,6 +23,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.utils import timezone
 gammeFormSet = inlineformset_factory(   
     MissionControle,
     GammeControle,
@@ -1903,6 +1904,90 @@ class ajouter_utilisateur(LoginRequiredMixin, CreateView):
 
 
 
+@csrf_exempt
+def upload_photo_defaut(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=403)
+
+    try:
+        gamme_id = request.POST.get('gamme_id')
+        description = request.POST.get('description', '')
+        
+        if not gamme_id:
+            return JsonResponse({'success': False, 'error': 'Missing gamme_id'}, status=400)
+            
+        gamme = get_object_or_404(GammeControle, id=gamme_id)
+        
+        files = request.FILES.getlist('photos')
+        if not files:
+            return JsonResponse({'success': False, 'error': 'No files provided'}, status=400)
+        
+        saved_photos = []
+        for file in files:
+            # Create PhotoDefaut instance
+            photo = PhotoDefaut(
+                gamme=gamme,
+                description=description,
+                created_by=request.user,
+                date_ajout=timezone.now()
+            )
+            
+            # Save the file to the correct location
+            file_extension = os.path.splitext(file.name)[1]
+            filename = f'defaut_{gamme.id}_{int(timezone.now().timestamp())}{file_extension}'
+            file_path = os.path.join('photos/defauts', filename)
+            
+            # Save the file using default storage
+            saved_path = default_storage.save(file_path, ContentFile(file.read()))
+            
+            # Set the image field to the saved path
+            photo.image = saved_path
+            photo.save()
+            
+            saved_photos.append({
+                'id': photo.id,
+                'url': photo.image.url,
+                'description': photo.description,
+                'date_ajout': photo.date_ajout.strftime('%d/%m/%Y %H:%M')
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully uploaded {len(saved_photos)} photos',
+            'photos': saved_photos
+        })
+        
+    except Exception as e:
+        logger.error(f'Error uploading defect photos: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@csrf_exempt
+def delete_photo_defaut(request, photo_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=403)
+        
+    try:
+        photo = get_object_or_404(PhotoDefaut, id=photo_id)
+        gamme_id = photo.gamme.id
+        
+        # Delete the file from storage
+        if photo.image:
+            if default_storage.exists(photo.image.name):
+                default_storage.delete(photo.image.name)
+        
+        # Delete the database record
+        photo.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Photo deleted successfully',
+            'gamme_id': gamme_id
+        })
+        
+    except Exception as e:
+        logger.error(f'Error deleting defect photo: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 def view_gamme_pdf(request, mission_id):
     """View to display the gamme PDF for a specific mission."""
     mission = get_object_or_404(MissionControle, id=mission_id)
@@ -1915,33 +2000,12 @@ def view_gamme_pdf(request, mission_id):
     # Get the RS user (the one who created the gamme)
     rs_user = gamme.created_by
     creator_name = rs_user.get_full_name() or rs_user.username
-    # Determine the creator's role based on user permissions
-    if rs_user.is_ro:
-        creator_role = 'Responsable Opérationnel (RO)'
-    elif rs_user.is_rs:
-        creator_role = 'Responsable Site (RS)'
-    elif rs_user.is_admin:
-        creator_role = 'Administrateur'
-    else:
-        creator_role = 'Utilisateur'
-    validator_name = None
-    validator_role = 'RO'  # Default role
+    creator_role = "Responsable Qualité"  # Default role
+    
+    # Get validator info if exists
+    validator_name = ""
+    validator_role = "Responsable Qualité"
     validation_date = None
-    if gamme and hasattr(gamme, 'validations'):
-        validation_record = gamme.validations.order_by('-date_validation_user_ro').first()
-        if validation_record and hasattr(validation_record, 'user_ro'):
-            user = validation_record.user_ro
-            validator_name = user.get_full_name() or user.username
-            # Get the validation date
-            if validation_record.date_validation_user_ro:
-                validation_date = validation_record.date_validation_user_ro
-            # Determine the role based on user permissions
-            if user.is_ro:
-                validator_role = 'Responsable Opérationnel (RO)'
-            elif user.is_rs:
-                validator_role = 'Responsable Site (RS)'
-            elif user.is_admin:
-                validator_role = 'Administrateur'
     
     # Get operations for the most recent gamme, ordered by 'ordre'
     operations_list = []
@@ -1996,10 +2060,38 @@ def view_gamme_pdf(request, mission_id):
     if ro_user is None:
         ro_user = request.user if request.user.is_authenticated else None
     
-    # Get PhotoDefaut objects for this gamme
+    # Get PhotoDefaut objects for this gamme using the correct related_name
     photo_defauts = []
-    if gamme and hasattr(gamme, 'photodefaut_set'):
-        photo_defauts = gamme.photodefaut_set.all().order_by('date_ajout')
+    if gamme:
+        try:
+            # Debug: Check if the gamme has the defaut_photos attribute
+            print(f"\n=== DEBUG: CHECKING PHOTOS FOR GAMME {gamme.id} ===")
+            print(f"Gamme ID: {gamme.id}, Title: {gamme.intitule}")
+            print(f"Has defaut_photos attribute: {hasattr(gamme, 'defaut_photos')}")
+            
+            # Get the photos
+            photo_defauts = gamme.defaut_photos.all().order_by('date_ajout')
+            print(f"Found {photo_defauts.count()} defect photos for gamme {gamme.id}")
+            
+            # Debug each photo
+            for i, photo in enumerate(photo_defauts, 1):
+                print(f"\nPhoto {i}:")
+                print(f"  ID: {photo.id}")
+                print(f"  Description: {photo.description}")
+                print(f"  Image path: {photo.image.path if photo.image else 'No image'}")
+                print(f"  Image URL: {photo.image.url if photo.image else 'No URL'}")
+                print(f"  Date: {photo.date_ajout}")
+                
+                # Check if file exists
+                if photo.image:
+                    file_exists = os.path.exists(photo.image.path)
+                    print(f"  File exists: {file_exists}")
+                    if not file_exists:
+                        print(f"  WARNING: File does not exist at {photo.image.path}")
+        except Exception as e:
+            print(f"Error getting defect photos: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     # Format the allocated time with a default value if not set
     temps_alloue = ''
@@ -2042,7 +2134,7 @@ def view_gamme_pdf(request, mission_id):
         'gamme_creation_date': gamme.date_creation  # Add gamme creation date to the context
     }
     
-    # Render the HTML view with jsPDF for client-side PDF generation
+    # Render the HTML view with jsPDF    # Use the new template for PDF viewing
     return render(request, 'gamme/gamme_pdf.html', context)
 
 
@@ -2053,7 +2145,6 @@ logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @require_http_methods(['POST'])
-@csrf_exempt
 def upload_photo_defaut(request):
     """
     View to handle uploading defect photos for a gamme.
@@ -2081,20 +2172,21 @@ def upload_photo_defaut(request):
         
         saved_photos = []
         for file in files:
-            # Save the file using the storage API
-            file_path = default_storage.save(f'photos/defaut_{gamme_id}_{file.name}', ContentFile(file.read()))
-            
-            # Create PhotoDefaut instance
-            photo = PhotoDefaut.objects.create(
+            # Create PhotoDefaut instance first to get the upload path
+            photo = PhotoDefaut(
                 gamme=gamme,
-                image=file_path,
                 description=description,
                 created_by=request.user
             )
+            
+            # Save the file using the model's save method which will handle the upload_to path
+            photo.image.save(file.name, file, save=True)
+            
             saved_photos.append({
                 'id': photo.id,
                 'url': photo.image.url,
-                'description': photo.description
+                'description': photo.description,
+                'date_ajout': photo.date_ajout.strftime('%d/%m/%Y %H:%M')
             })
         
         return JsonResponse({

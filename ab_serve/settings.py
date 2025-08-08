@@ -47,6 +47,14 @@ STATICFILES_DIRS = [str(path) for path in STATICFILES_DIRS]
 # Add support for static files in development
 if DEBUG:
     STATICFILES_DIRS.append(os.path.join(BASE_DIR, 'Gamme', 'static'))
+
+# Media files (Uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Create media directory if it doesn't exist
+os.makedirs(MEDIA_ROOT, exist_ok=True)
+
 # Application definition
 AUTH_USER_MODEL = 'Gamme.User'
 
