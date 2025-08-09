@@ -6,107 +6,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script>
-        const { jsPDF } = window.jspdf;
-
-        async function downloadPDF() {
-            const downloadBtn = document.querySelector('.btn-pdf');
-            if (!downloadBtn) {
-                console.error('Download button not found');
-                return;
-            }
-            
-            const originalText = downloadBtn.innerHTML;
-            downloadBtn.disabled = true;
-            downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération...';
-
-            try {
-                console.log("Starting PDF generation...");
-                const element = document.getElementById('pdf-content');
-                if (!element) {
-                    throw new Error('PDF content element not found');
-                }
-
-                // Show a loading indicator
-                const loadingIndicator = document.createElement('div');
-                loadingIndicator.style.position = 'fixed';
-                loadingIndicator.style.top = '50%';
-                loadingIndicator.style.left = '50%';
-                loadingIndicator.style.transform = 'translate(-50%, -50%)';
-                loadingIndicator.style.padding = '20px';
-                loadingIndicator.style.background = 'rgba(0,0,0,0.7)';
-                loadingIndicator.style.color = 'white';
-                loadingIndicator.style.borderRadius = '5px';
-                loadingIndicator.style.zIndex = '9999';
-                loadingIndicator.innerHTML = 'Génération du PDF en cours...';
-                document.body.appendChild(loadingIndicator);
-
-                // Create PDF in landscape mode
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'mm',
-                    format: 'a4'
-                });
-
-                // Use html2canvas with better options
-                const canvas = await html2canvas(element, {
-                    scale: 1.5,  // Slightly lower scale for better performance
-                    useCORS: true,
-                    logging: true,
-                    backgroundColor: '#ffffff',
-                    scrollX: 0,
-                    scrollY: 0,
-                    allowTaint: true,
-                    onclone: function(clonedDoc) {
-                        // Make sure all images are loaded
-                        const images = clonedDoc.images;
-                        for (let i = 0; i < images.length; i++) {
-                            if (!images[i].complete) {
-                                images[i].style.visibility = 'hidden';
-                            }
-                        }
-                    }
-                });
-
-                // Calculate dimensions to fit the page
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-                const imgWidth = pageWidth - 20; // 10mm margins on each side
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                
-                // Add the image to the PDF
-                pdf.addImage(
-                    canvas.toDataURL('image/png', 0.9), // 0.9 quality for smaller file size
-                    'PNG',
-                    10, // x position (10mm margin)
-                    10, // y position (10mm from top)
-                    imgWidth,
-                    imgHeight
-                );
-
-                // Remove loading indicator
-                document.body.removeChild(loadingIndicator);
-                
-                // Save the PDF
-                pdf.save('gamme-{{ mission.code }}.pdf');
-                console.log("PDF saved successfully");
-                
-                // Clean up
-                document.body.removeChild(tempContainer);
-
-            } catch (error) {
-                console.error('Error generating PDF:', error);
-                alert('Erreur lors de la génération du PDF. Veuillez réessayer. Détails dans la console.');
-            } finally {
-                downloadBtn.disabled = false;
-                downloadBtn.innerHTML = originalText;
-            }
-        }
-    </script>
+ 
 
     <title>Gamme PDF</title>
     <style>
         @page {
+            size: landscape;
+            margin: 0;
             size: landscape;
             margin: 0;
         }
@@ -185,21 +91,49 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+            z-index: 1000; /* Ensure toolbar is above other content */
         }
+        /* Original styles for the visible content */
         .pdf-content {
             overflow-y: auto;
             max-height: calc(100vh - 100px);
+        }
+        
+        /* Styles for PDF generation */
+        #pdf-content {
+            position: absolute !important;
+            left: -9999px !important;
+            top: 0 !important;
+            width: 1200px !important;
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+            font-size: 12pt !important;
+        }
+        
+        #pdf-content .pdf-content {
+            max-height: none !important;
+            overflow: visible !important;
+            height: auto !important;
         }
         .btn-pdf {
             background: #dc3545;
             color: white;
             border: none;
-            padding: 5px 15px;
+            padding: 8px 20px;
             border-radius: 4px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+            z-index: 1001; /* Ensure button is above toolbar */
+            pointer-events: auto !important; /* Force click events */
         }
         .btn-pdf:hover {
             background: #c82333;
@@ -309,14 +243,17 @@
 </head>
 <body style="height: 100%; margin: 0; padding: 0;">
     <!-- This container will be used for PDF generation -->
-    <div id="pdf-content" style="position: relative; width: 1584px; margin: 0 auto; background: white; padding: 20px; box-sizing: border-box;">
+    <div id="pdf-content" style="position: relative; width: 1200px; margin: 0 auto; background: white; padding: 20px; box-sizing: border-box; transform-origin: top center; font-size: 1.2em; line-height: 1.4;">
         <div class="pdf-content-wrapper">
+            <!-- Fixed page break marker at 800px from top -->
+            <div id="page-break-marker" style="position: absolute; top: 800px; left: 0; width: 100%; height: 1px; visibility: hidden; pointer-events: none;"></div>
             <!-- Main content will be rendered here -->
         </div>
     </div>
 
     <!-- Visible content -->
     <div class="pdf-container">
+        {% if not no_toolbar and not modal %}
         <div class="pdf-toolbar no-print">
             <div class="d-flex align-items-center gap-2">
                 <a href="{% url 'Gamme:op_edit' pk=mission.id %}" class="btn btn-sm btn-outline-secondary">
@@ -324,12 +261,13 @@
                 </a>
             </div>
             <div>
-                <button onclick="downloadPDF()" class="btn-pdf">
+                <button class="btn-pdf" id="downloadPdfBtn">
                     <i class="fas fa-download"></i> Télécharger le PDF
                 </button>
             </div>
         </div>
-        <div class="pdf-content">
+        {% endif %}
+        <div class="pdf-content" {% if no_toolbar or modal %}style="margin-top: 0;"{% endif %}>
     <!-- HEADER -->
     <table style="width: 100%; table-layout: fixed; margin: 0 auto;">
         <tr style="height: 40px;">
@@ -448,11 +386,11 @@
     </table>
 
     <!-- MAIN TABLE + SIGNATURE -->
-    <div style="width: 100%; overflow-x: auto; display: flex; align-items: stretch; min-height: 100%;">
+    <div style="width: 100%; overflow-x: auto; display: flex; min-height: auto; margin-bottom: 0;">
         <div style="flex: 1; display: flex; flex-direction: column; position: relative;">
             <!-- MAIN TABLE -->
-            <table style="width: 100%; table-layout: fixed; margin: 0; border-collapse: collapse; border-spacing: 0; min-height: 710px;">
-                <tr style="background-color: #e6f2ff; height: 60px;">
+            <table style="width: 100%; table-layout: fixed; margin: 0; border-collapse: collapse; border-spacing: 0; min-height: 440px;">
+                <tr style="background-color: #e6f2ff; height: 40px;">
                     <th style="width: 60px; min-width: 60px; max-width: 60px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word;">N° OP</th>
                     <th style="width: 200px; min-width: 200px; max-width: 200px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word;">OPÉRATION</th>
                     <th style="width: 250px; min-width: 100px; max-width: 60px; padding: 0; margin: 0; vertical-align: middle; text-align: center; word-wrap: break-word; white-space: normal;">Moyens de Contrôle & Fréquence</th>
@@ -467,7 +405,7 @@
                         <td style="text-align: center;">{{ op.description|default:'' }}</td>
                         <td style="text-align: center;">
                             {% if op.frequence or op.moyen_controle %}
-                                {{ op.frequence|default:'' }} {{ op.moyen_controle|default:'' }}
+                              Fréquence :  {{ op.frequence|default:'' }}<br> Mc: {{ op.moyen_controle|default:'' }}
                             {% endif %}
                         </td>
                         <td class="photo-cell{% if op.photos|length > 1 %} multiple-photos{% endif %}">
@@ -554,7 +492,7 @@
                                                                                                                                                                                 <div><strong>VISA :</strong>&nbsp;&nbsp; Électronique</div> 
                                                                                                                                                                                    </td>      
                                                                                                                                                                                      {% if epis %}
-                                                                                                                                                                                       {% for epi in epis|slice:":4" %}
+                                                                                                                                                                                       {% for epi in epis %}
                                                                                                                                                                                        <td style="text-align: center; vertical-align: middle;">X</td>
                                                                                                                                                                                        {% endfor %}
                                                                                                                                                                                        {% for i in "1234" %}
@@ -619,10 +557,8 @@
             </div>
         </div>
     </div>
-    <br>
-    <div><center>Page 1</center></div>
-    <br><br><br>
-    <div class="page-break" style="page-break-before: always; margin-top: 20px;">
+    <page-breaker></page-breaker>
+    <div style="page-break-before: always; padding-top: 10px; margin: 0;">
         <div style="background-color: #ff0000; color: white; text-align: center; padding: 10px 0; font-weight: bold; font-size: 16px; width: 100%;">
             DÉFAUT NON ADMISSIBLE
         </div>
@@ -682,11 +618,269 @@
     
         </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
-        // Add print functionality if needed
-        function printPDF() {
-            window.print();
+        // Initialize jsPDF
+        const { jsPDF } = window.jspdf;
+        
+        // Function to generate and download PDF
+        async function generatePDF() {
+            const downloadBtn = document.querySelector('.btn-pdf');
+            const originalBtnText = downloadBtn ? downloadBtn.innerHTML : '';
+            let tempContainer = null;
+            
+            try {
+                // Show loading state
+                if (downloadBtn) {
+                    downloadBtn.disabled = true;
+                    downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération en cours...';
+                }
+                
+                // Get the main container
+                const mainContainer = document.querySelector('.pdf-content');
+                if (!mainContainer) {
+                    throw new Error('Main container not found');
+                }
+                
+                // Store original styles to restore later
+                const originalStyles = {
+                    width: mainContainer.style.width,
+                    position: mainContainer.style.position,
+                    left: mainContainer.style.left,
+                    top: mainContainer.style.top,
+                    zIndex: mainContainer.style.zIndex,
+                    transform: mainContainer.style.transform,
+                    transformOrigin: mainContainer.style.transformOrigin
+                };
+                
+                // Prepare the container for capture
+                mainContainer.style.width = '1200px';
+                mainContainer.style.position = 'absolute';
+                mainContainer.style.left = '0';
+                mainContainer.style.top = '0';
+                mainContainer.style.zIndex = '9999';
+                mainContainer.style.transform = 'scale(1)';
+                mainContainer.style.transformOrigin = 'top left';
+                
+                // Show all elements by removing no-print class
+                document.querySelectorAll('.no-print').forEach(el => {
+                    el.classList.remove('no-print');
+                });
+                
+                // Wait for any images to load
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Create PDF in landscape mode
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+                
+                // Get PDF page dimensions
+                const pdfPageWidth = pdf.internal.pageSize.getWidth();
+                const pdfPageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 10; // mm
+                const contentWidth = pdfPageWidth - (2 * margin);
+                
+                // Capture the content with html2canvas
+                const canvas = await html2canvas(mainContainer, {
+                    scale: 2, // Higher scale for better quality
+                    useCORS: true,
+                    logging: true,
+                    backgroundColor: '#ffffff',
+                    scrollX: 0,
+                    scrollY: 0,
+                    width: mainContainer.scrollWidth,
+                    height: mainContainer.scrollHeight,
+                    windowWidth: mainContainer.scrollWidth,
+                    windowHeight: mainContainer.scrollHeight,
+                    allowTaint: true,
+                    scale: 1, // Reduce scale to fit more content
+                    useCORS: true,
+                    logging: true,
+                    backgroundColor: '#ffffff',
+                    scrollX: 0,
+                    scrollY: 0,
+                    width: mainContainer.scrollWidth,
+                    height: mainContainer.scrollHeight,
+                    allowTaint: true
+                });
+                
+                // Find the page-breaker element position
+                const pageBreaker = document.querySelector('page-breaker');
+                let splitPoint = 0;
+                
+                if (pageBreaker) {
+                    // Get the exact position of the page-breaker element
+                    const rect = pageBreaker.getBoundingClientRect();
+                    const containerRect = mainContainer.getBoundingClientRect();
+                    splitPoint = rect.top - containerRect.top;
+                    
+                    // Ensure we don't cut off the page-breaker itself
+                    splitPoint = Math.ceil(splitPoint);
+                } else {
+                    // Fallback: if no page-breaker found, split at 80% of content
+                    splitPoint = canvas.height * 0.8;
+                }
+                
+                // First page (content above page-breaker)
+                const firstPageCanvas = document.createElement('canvas');
+                firstPageCanvas.width = canvas.width;
+                firstPageCanvas.height = splitPoint;
+                const firstCtx = firstPageCanvas.getContext('2d');
+                firstCtx.drawImage(
+                    canvas,
+                    0, 0, // source x, y
+                    canvas.width, splitPoint, // source width, height
+                    0, 0, // destination x, y
+                    canvas.width, splitPoint // destination width, height
+                );
+                
+                // Calculate scale to fit the first page perfectly
+                const availableHeight = pdfPageHeight - (2 * margin);
+                const widthScale = (contentWidth * 0.95) / canvas.width;
+                const heightScale = (availableHeight * 0.9) / splitPoint; // 90% of available height to add some padding
+                const pageScale = Math.min(widthScale, heightScale);
+                
+                // Calculate centered position
+                const scaledHeight = splitPoint * pageScale;
+                const yPos = margin + ((availableHeight - scaledHeight) / 2);
+                
+                // Add first page with centered content
+                pdf.addImage(
+                    firstPageCanvas,
+                    'JPEG',
+                    margin * 0.8,  // Slightly reduced left margin
+                    Math.max(margin * 0.3, yPos),  // Use calculated position with minimum top margin
+                    contentWidth * 0.95,
+                    scaledHeight,
+                    null,
+                    'FAST'
+                );
+                
+                // Add first page number
+                pdf.setFontSize(10);
+                pdf.text(
+                    'Page 1 sur 2',
+                    pdfPageWidth / 2,
+                    pdfPageHeight - 10,
+                    { align: 'center' }
+                );
+                
+                // Second page (content below page-breaker)
+                const remainingHeight = canvas.height - splitPoint;
+                
+                if (remainingHeight > 0) {
+                    pdf.addPage();
+                    
+                    const secondPageCanvas = document.createElement('canvas');
+                    secondPageCanvas.width = canvas.width;
+                    secondPageCanvas.height = remainingHeight;
+                    
+                    const secondCtx = secondPageCanvas.getContext('2d');
+                    secondCtx.drawImage(
+                        canvas, 
+                        0, splitPoint, // source x, y
+                        canvas.width, remainingHeight, // source width, height
+                        0, 0, // destination x, y
+                        canvas.width, remainingHeight // destination width, height
+                    );
+                    
+                    // Add second page
+                    pdf.addImage(
+                        secondPageCanvas,
+                        'JPEG',
+                        margin,
+                        margin,
+                        contentWidth * 0.95,
+                        remainingHeight * pageScale,
+                        null,
+                        'FAST'
+                    );
+                    
+                    // Add second page number
+                    pdf.setFontSize(10);
+                    pdf.text(
+                        'Page 2 sur 2',
+                        pdfPageWidth / 2,
+                        pdfPageHeight - 10,
+                        { align: 'center' }
+                    );
+                }
+                
+                // Add second page number
+                pdf.setFontSize(10);
+                pdf.text(
+                    'Page 2 sur 2',
+                    pdfPageWidth / 2,
+                    pdfPageHeight - 10,
+                    { align: 'center' }
+                );
+                
+                // Save the PDF with a timestamp
+                const pdfTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                pdf.save(`Gamme_${pdfTimestamp}.pdf`);
+                
+                // Re-enable the download button
+                if (downloadBtn) {
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = originalBtnText;
+                }
+                
+                // Clean up the temporary container if it exists
+                if (tempContainer && tempContainer.parentNode) {
+                    document.body.removeChild(tempContainer);
+                }
+                
+                return; // Exit early since we've handled the PDF save
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Erreur lors de la génération du PDF: ' + (error.message || 'Une erreur inconnue est survenue'));
+                
+                // Re-enable the download button in case of error
+                if (downloadBtn) {
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = originalBtnText;
+                }
+                
+                // Clean up the temporary container if it exists
+                if (tempContainer && tempContainer.parentNode) {
+                    document.body.removeChild(tempContainer);
+                }
+            }
         }
+        
+        // Add event listener when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded, setting up PDF button...');
+            const downloadBtn = document.getElementById('downloadPdfBtn');
+            
+            if (downloadBtn) {
+                console.log('PDF download button found, adding click handler');
+                downloadBtn.addEventListener('click', function(e) {
+                    console.log('PDF download button clicked');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    generatePDF().catch(console.error);
+                });
+            } else {
+                console.error('PDF download button not found!');
+            }
+        });
+    </script>
+    <script>
+        // Add click event to the download button
+        document.addEventListener('DOMContentLoaded', function() {
+            const downloadBtn = document.querySelector('.btn-pdf');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    generatePDF();
+                });
+            }
+        });
     </script>
 </body>
 </html>

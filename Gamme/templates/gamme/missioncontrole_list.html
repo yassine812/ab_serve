@@ -95,13 +95,28 @@
                         {% endif %}
                     </td>
                     <td class="align-middle text-center">
-                        {% if mission.pdf_file %}
-                            <a href="{{ mission.pdf_file.url }}?v={{ mission.updated_at|date:'U' }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-file-pdf"></i> Voir PDF
-                            </a>
-                        {% else %}
-                            <span class="text-muted">Aucun fichier</span>
-                        {% endif %}
+                        <a href="{% url 'Gamme:view_gamme_pdf' mission.id %}" class="btn btn-sm btn-info" target="_blank">
+                            <i class="fas fa-eye"></i> Voir les gammes
+                        </a>
+                        <!-- PDF Viewer Modal -->
+                        <div class="modal fade" id="pdfViewerModal{{ mission.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 95%; height: 95vh;">
+                                <div class="modal-content h-100">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Visualisation de la gamme - {{ mission.code }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body p-0" style="height: 100%;">
+                                        <iframe 
+                                            src="{% url 'Gamme:view_gamme_pdf' mission.id %}?modal=1" 
+                                            style="width: 100%; height: 100%; border: none;"
+                                            sandbox="allow-same-origin"
+                                            allowfullscreen
+                                        ></iframe>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </td>
                     <td class="align-middle text-center">{{ mission.date_creation|date:"d/m/Y H:i" }}</td>
                     {% if not is_operator %}

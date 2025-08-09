@@ -1,8 +1,15 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Max, Prefetch
+
+# Set up logging
+logger = logging.getLogger(__name__)
+from django.template.loader import render_to_string
+from io import BytesIO
+import os
 import os
 import logging
 import json
@@ -2134,14 +2141,56 @@ def view_gamme_pdf(request, mission_id):
         'gamme_creation_date': gamme.date_creation  # Add gamme creation date to the context
     }
     
-    # Render the HTML view with jsPDF    # Use the new template for PDF viewing
-    return render(request, 'gamme/gamme_pdf.html', context)
+    # Check if this is a modal request
+    is_modal = request.GET.get('modal') == '1'
+    
+    # Add modal flag to context
+    context['modal'] = is_modal
+    
+    # Use the appropriate template based on the request
+    if is_modal:
+        return render(request, 'gamme/gamme_pdf_modal_only.html', context)
+    else:
+        return render(request, 'gamme/gamme_pdf.html', context)
 
-
-
-
-logger = logging.getLogger(__name__)
-
+def download_gamme_pdf(request, mission_id):
+    """View to download the gamme PDF for a specific mission."""
+    # Reuse the same context preparation as view_gamme_pdf
+    mission = get_object_or_404(MissionControle, id=mission_id)
+    
+    # Get the most recent gamme for this mission
+    gamme = mission.gammes.filter(statut=True).order_by('-version_num').first()
+    if not gamme:
+        raise Http404("Aucune gamme active trouvée pour cette mission.")
+    
+    # Get the RS user (the one who created the gamme)
+    rs_user = gamme.created_by
+    creator_name = rs_user.get_full_name() or rs_user.username
+    creator_role = "Responsable Qualité"  # Default role
+    
+    # Get validator info if exists
+    validator_name = ""
+    validator_role = "Responsable Qualité"
+    validation_date = None
+    
+    # Get operations for the most recent gamme, ordered by 'ordre'
+    operations_list = []
+    if gamme:
+        operations_list = list(gamme.operations.all().order_by('ordre').prefetch_related('moyenscontrole'))
+    
+    operations_dict = {}
+    # Get unique moyens_controle directly from the gamme
+    unique_moyens = set()
+    
+    if gamme:
+        # Get moyens_controle directly from the gamme
+        gamme_moyens = list(gamme.moyens_controle.all())
+        for m in gamme_moyens:
+            unique_moyens.add(m)
+    
+    # Only include operations that have data
+    for i, op in enumerate(operations_list, 1):
+        pass  # Add proper indentation for the loop body
 
 @csrf_exempt
 @require_http_methods(['POST'])

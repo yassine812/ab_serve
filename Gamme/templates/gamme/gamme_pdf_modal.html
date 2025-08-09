@@ -1,0 +1,35 @@
+{% extends 'gamme/gamme_pdf.html' %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Hide the toolbar in the modal view */
+    .pdf-toolbar, .no-print {
+        display: none !important;
+    }
+    /* Adjust the content to fill the space */
+    .pdf-content {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    // Ensure the toolbar stays hidden
+    document.addEventListener('DOMContentLoaded', function() {
+        const toolbar = document.querySelector('.pdf-toolbar');
+        if (toolbar) {
+            toolbar.style.display = 'none';
+        }
+        
+        const content = document.querySelector('.pdf-content');
+        if (content) {
+            content.style.marginTop = '0';
+            content.style.paddingTop = '0';
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+<!-- HEADER -->
+<table style="width: 100%; table-layout: fixed; margin: 0 auto;">
+    <tr style="height: 40px;">
+        <td rowspan="2" class="first-col" style="height: 100%; width: 120px; min-width: 120px; max-width: 120px;">
+            <div style="display: flex; align-items: center; height: 100%;">
+                <img src="{% static 'logo.jpg' %}" style="max-width: 100%; max-height: 100%;">
+            </div>
+        </td>
+        <td class="second-col" style="background-color: #d0e1f3;">
+            <div style=" display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 1.3em;">
+                <div style="text-align: left; padding-left: 10px;"><strong>GAMME DE TRAVAIL</strong></div>
+                <div style="padding-right: 30px;"><strong>n° clt 001</strong></div>
+            </div>
+        </td>
+        <td rowspan="2" class="third-col" style="height: 100%;">
+            <div style="display: flex; height: 100%;">
+                <div style="flex: 1; display: flex; align-items: center; justify-content: flex-start; padding: 0; overflow: visible; width: 100%; height: 100%;">
+                    <img src="{% static 'pic.jpg' %}" style="width: auto; height: 150%; object-fit: contain; margin-left: 5px;">
+                </div>
+                <div style="flex: 1; display: flex; align-items: center; padding: 5px;">
+                    <div style="width: 100%;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- S Row -->
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div style="display: flex; gap: 20px;">
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if gammecontrole.picto_s %}checked{% endif %} disabled>
+                                        Oui
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if not gammecontrole.picto_s and gammecontrole.picto_s is not None %}checked{% endif %} disabled>
+                                        Non
+                                    </div>
+                                </div>
+                                <div style="font-weight: bold;">S</div>
+                            </div>
+                            <!-- E Row -->
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div style="display: flex; gap: 20px;">
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if gammecontrole.picto_e %}checked{% endif %} disabled>
+                                        Oui
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if not gammecontrole.picto_e and gammecontrole.picto_e is not None %}checked{% endif %} disabled>
+                                        Non
+                                    </div>
+                                </div>
+                                <div style="font-weight: bold;">E</div>
+                            </div>
+                            <!-- C Row -->
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div style="display: flex; gap: 20px;">
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if gammecontrole.picto_c %}checked{% endif %} disabled>
+                                        Oui
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if not gammecontrole.picto_c and gammecontrole.picto_c is not None %}checked{% endif %} disabled>
+                                        Non
+                                    </div>
+                                </div>
+                                <div style="font-weight: bold;">C</div>
+                            </div>
+                            <!-- T Row -->
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div style="display: flex; gap: 20px;">
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if gammecontrole.picto_t %}checked{% endif %} disabled>
+                                        Oui
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if not gammecontrole.picto_t and gammecontrole.picto_t is not None %}checked{% endif %} disabled>
+                                        Non
+                                    </div>
+                                </div>
+                                <div style="font-weight: bold;">T</div>
+                            </div>
+                            <!-- I Row -->
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div style="display: flex; gap: 20px;">
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if gammecontrole.picto_i %}checked{% endif %} disabled>
+                                        Oui
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if not gammecontrole.picto_i and gammecontrole.picto_i is not None %}checked{% endif %} disabled>
+                                        Non
+                                    </div>
+                                </div>
+                                <div style="font-weight: bold;">I</div>
+                            </div>
+                            <!-- O Row -->
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div style="display: flex; gap: 20px;">
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if gammecontrole.picto_o %}checked{% endif %} disabled>
+                                        Oui
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <input type="checkbox" {% if not gammecontrole.picto_o and gammecontrole.picto_o is not None %}checked{% endif %} disabled>
+                                        Non
+                                    </div>
+                                </div>
+                                <div style="font-weight: bold;">O</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </td>
+    </tr>
+    <tr style="height: 40px;">
+        <td class="second-col" style="background-color: #d0e1f3; text-align: center; font-size: 1.1em; font-weight: bold;">
+            {{ mission.code }} - {{ mission.designation }}
+        </td>
+    </tr>
+</table>
+
+<!-- Main Content -->
+<div style="margin-top: 20px;">
+    <!-- Operations Table -->
+    <table class="table table-bordered" style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #f8f9fa; font-weight: bold; text-align: center;">
+                <th style="width: 5%; text-align: center;">N° Op</th>
+                <th style="width: 15%; text-align: center;">Poste</th>
+                <th style="width: 50%; text-align: center;">Désignation</th>
+                <th style="width: 15%; text-align: center;">Temps (min)</th>
+                <th style="width: 15%; text-align: center;">Image</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for operation in operations %}
+            <tr>
+                <td style="text-align: center;">{{ operation.numero_operation }}</td>
+                <td style="text-align: center;">{{ operation.poste_travail.nom }}</td>
+                <td>
+                    <div style="font-weight: bold;">{{ operation.designation }}</div>
+                    {% if operation.description %}
+                    <div style="font-size: 0.9em; color: #555; margin-top: 5px;">{{ operation.description|linebreaksbr }}</div>
+                    {% endif %}
+                    
+                    {% if operation.moyens.all %}
+                    <div style="margin-top: 10px;">
+                        <div style="font-weight: bold; font-size: 0.9em;">Moyens :</div>
+                        <ul style="margin: 5px 0 0 20px; padding: 0;">
+                            {% for moyen in operation.moyens.all %}
+                            <li>{{ moyen.nom }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if operation.epis.all %}
+                    <div style="margin-top: 10px;">
+                        <div style="font-weight: bold; font-size: 0.9em;">EPI :</div>
+                        <ul style="margin: 5px 0 0 20px; padding: 0;">
+                            {% for epi in operation.epis.all %}
+                            <li>{{ epi.nom }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">{{ operation.temps_estime }}</td>
+                <td style="text-align: center;">
+                    {% if operation.photos.all %}
+                        {% with operation.photos.all|first as photo %}
+                            <img src="{{ photo.image.url }}" style="max-width: 100px; max-height: 100px;" alt="Operation Image">
+                        {% endwith %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Defect Photos -->
+    {% if defect_photos %}
+    <div style="page-break-before: always; margin-top: 30px;">
+        <h4 style="text-align: center; margin-bottom: 20px;">Photos des défauts</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
+            {% for photo in defect_photos %}
+            <div style="text-align: center;">
+                <img src="{{ photo.image.url }}" style="max-width: 250px; max-height: 250px; border: 1px solid #ddd;" alt="Defect Photo">
+                <div style="margin-top: 5px; font-size: 0.9em;">{{ photo.titre }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Validation Section -->
+    <div style="margin-top: 50px; page-break-before: always;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <tr>
+                <td style="width: 50%; padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">Réalisé par :</div>
+                    <div style="margin-bottom: 30px;">{{ creator_name }}</div>
+                    <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto; padding-top: 5px;">Signature</div>
+                </td>
+                <td style="width: 50%; padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">Validé par :</div>
+                    <div style="margin-bottom: 30px;">{{ validator_name }}</div>
+                    <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto; padding-top: 5px;">Signature</div>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">Fonction :</div>
+                    <div style="margin-bottom: 30px;">{{ creator_role }}</div>
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">Fonction :</div>
+                    <div style="margin-bottom: 30px;">{{ validator_role }}</div>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">Date :</div>
+                    <div style="margin-bottom: 30px;">{{ gamme_creation_date|date:"d/m/Y" }}</div>
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">Date :</div>
+                    <div style="margin-bottom: 30px;">{{ validation_date|date:"d/m/Y" }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
