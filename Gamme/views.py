@@ -983,7 +983,21 @@ class DashboardView(LoginRequiredMixin, View):
                 for error in errors:
                     messages.error(self.request, f"Opération {i + 1} - {field}: {error}")
 
-class GammeControleCreateView(LoginRequiredMixin,View):
+class GammeControleCreateView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     template_name = 'gamme/gammecontrole_create.html'
 
     def get(self, request):
@@ -1081,7 +1095,21 @@ class GammeControleCreateView(LoginRequiredMixin,View):
         messages.success(request, "La gamme, ses opérations et photos ont été enregistrées avec succès.")
         return redirect('Gamme:gammecontrole_list')
 
-class GammeControleListView(LoginRequiredMixin, ListView):
+class GammeControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = GammeControle
     template_name = 'gamme/gammecontrole_list.html'
     
@@ -1091,7 +1119,21 @@ class GammeControleListView(LoginRequiredMixin, ListView):
         return context
 
 
-class GammeControleUpdateView(LoginRequiredMixin,UpdateView):
+class GammeControleUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = GammeControle
     template_name = 'gamme/gammecontrole_update.html'
     fields = ['mission', 'intitule', 'statut']
@@ -1149,7 +1191,21 @@ class GammeControleDetailView(LoginRequiredMixin, DetailView):
         context['operations'] = OperationControle.objects.filter(gamme=self.object).order_by('ordre')
         return context
 
-class GammeControleDeleteView(LoginRequiredMixin,DeleteView):
+class GammeControleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = GammeControle
     template_name = 'gamme/gammecontrole_delete.html'
     success_url = reverse_lazy('Gamme:gammecontrole_list')
@@ -1157,7 +1213,21 @@ class GammeControleDeleteView(LoginRequiredMixin,DeleteView):
 
 from django.db import transaction
 
-class MissionControleCreateView(LoginRequiredMixin,View):
+class MissionControleCreateView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     template_name = 'gamme/missioncontrole_create.html'
 
     def get(self, request):
@@ -1526,16 +1596,27 @@ class MissionControleCreateView(LoginRequiredMixin,View):
 class MissionControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = MissionControle
     template_name = 'gamme/missioncontrole_list.html'
+    raise_exception = True  # This will raise PermissionDenied instead of redirecting
     
     def test_func(self):
-        # Only allow access if user is admin, responsable, or operator
-        return self.request.user.is_authenticated
+        # Only allow access if user is admin or responsable
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+            
+        # Check if user is superuser or has the right role
+        if user.is_superuser:
+            return True
+            
+        # Check if user has a profile with the right role
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
     
     def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        messages.error(self.request, "Accès refusé. Vous n'avez pas les droits nécessaires.")
-        return redirect('Gamme:dashboard')
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -1734,7 +1815,21 @@ class OperatorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateVie
         return context
 
 
-class EpiCreateView(LoginRequiredMixin, CreateView):
+class EpiCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = epi
     template_name = 'gamme/epi_form.html'
     fields = ['nom', 'photo', 'commentaire']
@@ -1751,7 +1846,21 @@ class EpiCreateView(LoginRequiredMixin, CreateView):
         return context
 
 
-class EpiListView(LoginRequiredMixin, ListView):
+class EpiListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = epi
     template_name = 'gamme/epi_list.html'
     context_object_name = 'object_list'
@@ -1761,7 +1870,21 @@ class EpiListView(LoginRequiredMixin, ListView):
         return epi.objects.all().order_by('nom')
 
 
-class EpiUpdateView(LoginRequiredMixin, UpdateView):
+class EpiUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = epi
     form_class = EpiForm
     template_name = 'gamme/epi_update.html'
@@ -1780,7 +1903,21 @@ class EpiUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy('Gamme:epi_list')
 
 
-class EpiDeleteView(LoginRequiredMixin, DeleteView):
+class EpiDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = epi
     template_name = 'gamme/epi_confirm_delete.html'
     success_url = reverse_lazy('Gamme:epi_list')
@@ -1794,7 +1931,21 @@ class EpiDeleteView(LoginRequiredMixin, DeleteView):
         return response
 
 
-class UserListView(LoginRequiredMixin, ListView):
+class UserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = User
     template_name = 'gamme/user_list.html'
     context_object_name = 'users'
@@ -1814,7 +1965,21 @@ class UserListView(LoginRequiredMixin, ListView):
         context['user_count'] = self.get_queryset().count()
         return context
 
-class UserUpdateView(LoginRequiredMixin, UpdateView):
+class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = User
     fields = ['username', 'email', 'first_name', 'last_name']
     template_name = 'gamme/user_update.html'
@@ -1840,7 +2005,21 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         return context
 
 
-class UserDeleteView(LoginRequiredMixin, DeleteView):
+class UserDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = User
     template_name = 'gamme/user_confirm_delete.html'
     success_url = reverse_lazy('Gamme:user_list')
@@ -2280,7 +2459,21 @@ class MoyenControleListView(LoginRequiredMixin, ListView):
         return moyens_controle.objects.all().order_by('ordre', 'nom')
 
 
-class MoyenControleCreateView(LoginRequiredMixin, CreateView):
+class MoyenControleCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = moyens_controle
     form_class = MoyenControleForm
     template_name = 'gamme/moyenscontrole_create.html'
@@ -2295,7 +2488,21 @@ class MoyenControleCreateView(LoginRequiredMixin, CreateView):
         return context
 
 
-class MoyenControleUpdateView(LoginRequiredMixin, UpdateView):
+class MoyenControleUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = moyens_controle
     form_class = MoyenControleForm
     template_name = 'gamme/moyenscontrole_update.html'
@@ -2310,7 +2517,21 @@ class MoyenControleUpdateView(LoginRequiredMixin, UpdateView):
         return context
 
 
-class MoyenControleDeleteView(LoginRequiredMixin, DeleteView):
+class MoyenControleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        try:
+            return user.profile.role in ['admin', 'responsable']
+        except Exception:
+            return False
+    
+    def handle_no_permission(self):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette page.")
     model = moyens_controle
     template_name = 'gamme/moyenscontrole_delete.html'
     

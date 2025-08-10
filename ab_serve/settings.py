@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-j0l_)#a9@m8v0xivvfm_qfj!dp55b3r1+@*%69#jyx021+r!r0
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
