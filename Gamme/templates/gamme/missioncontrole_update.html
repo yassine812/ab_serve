@@ -1200,30 +1200,35 @@
       event.stopPropagation();
     }
     
-    const container = document.getElementById(`newOpPhotoFormsContainer-${gammeId}_${opIndex}`);
+    // Log the container we're trying to find
+    const containerId = `newOpPhotoFormsContainer-${gammeId}_${opIndex}`;
+    console.log('Looking for container:', containerId);
+    
+    // Find the container using the closest operation form to the clicked button
+    let container;
+    if (event && event.target) {
+      const operationForm = event.target.closest('.operation-form');
+      if (operationForm) {
+        container = operationForm.querySelector(`#${containerId}`);
+      }
+    }
+    
+    // Fallback to direct ID lookup if not found through DOM traversal
     if (!container) {
-      console.error('Container not found:', `newOpPhotoFormsContainer-${gammeId}_${opIndex}`);
+      container = document.getElementById(containerId);
+    }
+    
+    if (!container) {
+      console.error('Container not found:', containerId);
+      console.log('Available containers:', 
+        Array.from(document.querySelectorAll('[id^="newOpPhotoFormsContainer-"]')).map(el => el.id)
+      );
       return;
     }
-
-    // Find the next available photo index
-    let photoIndex = 0;
-    const usedIndices = new Set();
-    const inputs = container.querySelectorAll('input[type="file"]');
     
-    inputs.forEach(input => {
-      const match = input.name.match(/newop_\d+_\d+_photo_(\d+)_/);
-      if (match) {
-        usedIndices.add(parseInt(match[1]));
-      }
-    });
-    
-    // Find the first available index
-    while (usedIndices.has(photoIndex)) {
-      photoIndex++;
-    }
-    
-    if (photoIndex >= 5) {
+    // Count existing photos in this container
+    const photoCount = container.querySelectorAll('.photo-form-group').length;
+    if (photoCount >= 5) {
       alert('Maximum de 5 photos par opération atteint');
       return;
     }
@@ -1236,20 +1241,15 @@
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.className = 'form-control form-control-sm';
-    fileInput.name = `newop_${gammeId}_${opIndex}_photo_${photoIndex}_image`;
+    fileInput.name = `newop_${gammeId}_${opIndex}_photo_${photoCount}_image`;
     fileInput.accept = 'image/*';
     fileInput.required = false;
-    
-    // Add change event for debugging
-    fileInput.addEventListener('change', function() {
-      console.log('File selected:', this.name, 'File:', this.files[0]);
-    });
     
     // Create description input
     const descInput = document.createElement('input');
     descInput.type = 'text';
     descInput.className = 'form-control form-control-sm';
-    descInput.name = `newop_${gammeId}_${opIndex}_photo_${photoIndex}_description`;
+    descInput.name = `newop_${gammeId}_${opIndex}_photo_${photoCount}_description`;
     descInput.placeholder = 'Description (optionnelle)';
     
     // Create remove button
@@ -1258,7 +1258,7 @@
     removeBtn.className = 'btn btn-outline-danger btn-sm';
     removeBtn.innerHTML = '<i class="bi bi-x"></i>';
     removeBtn.onclick = function() {
-      container.removeChild(formGroup);
+      formGroup.remove();
       updatePhotoCounters();
     };
     
@@ -1271,12 +1271,16 @@
     inputGroup.appendChild(descInput);
     inputGroup.appendChild(removeBtn);
     formGroup.appendChild(inputGroup);
+    
+    // Add the form group to the container
     container.appendChild(formGroup);
     
-    // Debug log
-    console.log('Added photo input with name:', fileInput.name);
+    // Update photo counters
+    updatePhotoCounters();
     
-    // Return false to prevent default behavior
+    // Debug log
+    console.log(`Added photo input to container ${containerId}, total photos: ${photoCount + 1}`);
+    
     return false;
   }
 
@@ -1414,17 +1418,29 @@
       }
     });
     
-    // Update any photo container IDs
-    const photoContainers = newForm.querySelectorAll('[id^="newPhotoFormsContainer-"]');
-    photoContainers.forEach(container => {
-      container.id = `newPhotoFormsContainer-${gammeId}-${operationCounter}`;
-    });
-    
-    // Update any add photo buttons
-    const addPhotoButtons = newForm.querySelectorAll('[onclick^="addNewOpPhotoForm"]');
-    addPhotoButtons.forEach(btn => {
-      btn.setAttribute('onclick', `addNewOpPhotoForm(${gammeId}, ${operationCounter}, event)`);
-    });
+    // Update photo form container and button
+    const photoContainer = newForm.querySelector('.photo-forms-container');
+    if (photoContainer) {
+      photoContainer.id = `newOpPhotoFormsContainer-${gammeId}_${operationCounter}`;
+      photoContainer.innerHTML = ''; // Clear any existing photo forms
+      
+      // Create a new add photo button
+      const addPhotoBtn = document.createElement('button');
+      addPhotoBtn.type = 'button';
+      addPhotoBtn.className = 'btn btn-outline-secondary btn-sm mt-3';
+      addPhotoBtn.innerHTML = '<i class="bi bi-camera"></i> Ajouter une photo';
+      addPhotoBtn.onclick = function(event) {
+        event.stopPropagation();
+        addNewOpPhotoForm(gammeId, operationCounter, event);
+      };
+      
+      // Remove any existing add photo buttons and add the new one
+      const existingBtns = newForm.querySelectorAll('button[onclick*="addNewOpPhotoForm"]');
+      existingBtns.forEach(btn => btn.remove());
+      
+      // Add the new button after the container
+      photoContainer.parentNode.insertBefore(addPhotoBtn, photoContainer.nextSibling);
+    }
     
     // Set the order field to be one more than the last operation's order in this gamme
     const orderInput = newForm.querySelector('input[name$="_ordre"]');
