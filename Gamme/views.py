@@ -738,6 +738,48 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 print("Formset errors:", operation_formset.errors)
                 print("Non-form errors:", operation_formset.non_form_errors())
 
+        # Copy defect photos (PhotoDefaut) from old gamme to new gamme
+        if changement_detecte and new_gamme != gamme:
+            try:
+                # Get all defect photos from the old gamme
+                defect_photos = PhotoDefaut.objects.filter(gamme=gamme)
+                
+                # Copy each defect photo to the new gamme
+                for photo in defect_photos:
+                    # Create a new PhotoDefaut object with the same image and details
+                    # but linked to the new gamme
+                    
+                    # First, read the original image file
+                    original_image = photo.image
+                    
+                    # Create a new PhotoDefaut instance
+                    new_photo = PhotoDefaut(
+                        gamme=new_gamme,
+                        description=photo.description,
+                        created_by=photo.created_by,
+                        date_ajout=photo.date_ajout
+                    )
+                    
+                    # Generate a new filename to avoid conflicts
+                    file_extension = os.path.splitext(original_image.name)[1]
+                    new_filename = f'defaut_{new_gamme.id}_{int(timezone.now().timestamp())}{file_extension}'
+                    
+                    # Copy the file to a new location
+                    new_photo.image.save(
+                        new_filename,
+                        ContentFile(original_image.read()),
+                        save=True
+                    )
+                    
+                    # Save the new photo
+                    new_photo.save()
+                    
+                    print(f"Copied defect photo {photo.id} to new gamme {new_gamme.id} as {new_photo.id}")
+                    
+            except Exception as e:
+                logger.error(f"Error copying defect photos: {str(e)}", exc_info=True)
+                # Continue with the redirect even if there's an error with copying photos
+
         return redirect('Gamme:missioncontrole_list')
 
 
@@ -1911,62 +1953,7 @@ class ajouter_utilisateur(LoginRequiredMixin, CreateView):
 
 
 
-@csrf_exempt
-def upload_photo_defaut(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=403)
-
-    try:
-        gamme_id = request.POST.get('gamme_id')
-        description = request.POST.get('description', '')
-        
-        if not gamme_id:
-            return JsonResponse({'success': False, 'error': 'Missing gamme_id'}, status=400)
-            
-        gamme = get_object_or_404(GammeControle, id=gamme_id)
-        
-        files = request.FILES.getlist('photos')
-        if not files:
-            return JsonResponse({'success': False, 'error': 'No files provided'}, status=400)
-        
-        saved_photos = []
-        for file in files:
-            # Create PhotoDefaut instance
-            photo = PhotoDefaut(
-                gamme=gamme,
-                description=description,
-                created_by=request.user,
-                date_ajout=timezone.now()
-            )
-            
-            # Save the file to the correct location
-            file_extension = os.path.splitext(file.name)[1]
-            filename = f'defaut_{gamme.id}_{int(timezone.now().timestamp())}{file_extension}'
-            file_path = os.path.join('photos/defauts', filename)
-            
-            # Save the file using default storage
-            saved_path = default_storage.save(file_path, ContentFile(file.read()))
-            
-            # Set the image field to the saved path
-            photo.image = saved_path
-            photo.save()
-            
-            saved_photos.append({
-                'id': photo.id,
-                'url': photo.image.url,
-                'description': photo.description,
-                'date_ajout': photo.date_ajout.strftime('%d/%m/%Y %H:%M')
-            })
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Successfully uploaded {len(saved_photos)} photos',
-            'photos': saved_photos
-        })
-        
-    except Exception as e:
-        logger.error(f'Error uploading defect photos: {str(e)}', exc_info=True)
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+# Removed duplicate upload_photo_defaut view - using the one with proper file handling below
 
 @csrf_exempt
 def delete_photo_defaut(request, photo_id):
@@ -2229,7 +2216,8 @@ def upload_photo_defaut(request):
             photo = PhotoDefaut(
                 gamme=gamme,
                 description=description,
-                created_by=request.user
+                created_by=request.user,
+                date_ajout=timezone.now()
             )
             
             # Save the file using the model's save method which will handle the upload_to path

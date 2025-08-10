@@ -18,6 +18,12 @@
     .btn-pdf.loading .bi-file-pdf {
         display: none;
     }
+    
+    /* Remove modal body scroll so iframe controls it */
+    .modal-body {
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
 </style>
 {% endblock %}
 
@@ -108,10 +114,12 @@
                                     </div>
                                     <div class="modal-body p-0" style="height: 100%;">
                                         <iframe 
+                                            id="pdfIframe{{ mission.id }}"
                                             src="{% url 'Gamme:view_gamme_pdf' mission.id %}?modal=1" 
-                                            style="width: 100%; height: 100%; border: none;"
+                                            style="width: 100%; height: 100%; border: none; overflow: hidden;"
                                             sandbox="allow-same-origin"
                                             allowfullscreen
+                                            scrolling="no"
                                         ></iframe>
                                     </div>
                                 </div>
@@ -166,6 +174,22 @@
 </div>
 
 <script>
+    // Function to resize iframe to fit its content
+    function resizeIframe(iframe) {
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            if (doc.readyState === 'complete') {
+                iframe.style.height = '100%';
+                iframe.contentWindow.document.documentElement.style.overflow = 'hidden';
+                iframe.contentWindow.document.body.style.overflow = 'auto';
+                iframe.contentWindow.document.body.style.margin = '0';
+                iframe.contentWindow.document.body.style.padding = '0';
+            }
+        } catch (e) {
+            console.error('Error resizing iframe:', e);
+        }
+    }
+
     // Initialize jsPDF
     const { jsPDF } = window.jspdf;
     
