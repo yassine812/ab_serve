@@ -2141,11 +2141,15 @@ def view_gamme_pdf(request, mission_id):
         'gamme_creation_date': gamme.date_creation  # Add gamme creation date to the context
     }
     
-    # Check if this is a modal request
+    # Check if this is a modal or no_toolbar request
     is_modal = request.GET.get('modal') == '1'
+    no_toolbar = request.GET.get('no_toolbar') == '1' or is_modal
     
-    # Add modal flag to context
-    context['modal'] = is_modal
+    # Add flags to context
+    context.update({
+        'modal': is_modal,
+        'no_toolbar': no_toolbar
+    })
     
     # Use the appropriate template based on the request
     if is_modal:

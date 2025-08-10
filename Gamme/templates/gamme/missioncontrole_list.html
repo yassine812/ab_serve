@@ -95,7 +95,7 @@
                         {% endif %}
                     </td>
                     <td class="align-middle text-center">
-                        <a href="{% url 'Gamme:view_gamme_pdf' mission.id %}" class="btn btn-sm btn-info" target="_blank">
+                        <a href="{% url 'Gamme:view_gamme_pdf' mission.id %}?no_toolbar=1" class="btn btn-sm btn-info" target="_blank">
                             <i class="fas fa-eye"></i> Voir les gammes
                         </a>
                         <!-- PDF Viewer Modal -->
