@@ -986,11 +986,7 @@
                       <label>Fréquence</label>
                       {{ form.frequence }}
                     </div>
-                    <div class="col-md-6 mb-3">
-                      <label>Critères</label>
-                      {{ form.criteres }}
-                    </div>
-
+                    
                   </div>
 
                   <!-- Container new photos for this new form op -->
@@ -1474,6 +1470,17 @@
     if (!container) return;
 
     const formIndex = container.children.length;
+    
+    // Find the highest existing order number
+    let highestOrder = 0;
+    document.querySelectorAll('input[name$="-ordre"]').forEach(input => {
+      const order = parseInt(input.value) || 0;
+      if (order > highestOrder) {
+        highestOrder = order;
+      }
+    });
+    const nextOrder = highestOrder + 1;
+    
     const div = document.createElement('div');
     div.className = 'card card-light mb-3 operation-form';
     div.id = `newOpForm-${formIndex}`;
@@ -1491,7 +1498,7 @@
           </div>
           <div class="col-md-6 mb-3">
             <label class="form-label">Ordre</label>
-            <input type="number" name="form-${formIndex}-ordre" class="form-control" required>
+            <input type="number" name="form-${formIndex}-ordre" class="form-control" value="${nextOrder}" required>
           </div>
           <div class="col-md-6 mb-3">
             <label class="form-label">Description</label>
@@ -1500,6 +1507,14 @@
           <div class="col-md-6 mb-3">
             <label class="form-label">Critères</label>
             <textarea name="form-${formIndex}-criteres" class="form-control" required></textarea>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Moyens de contrôle</label>
+            <input type="text" name="form-${formIndex}-moyen_controle" class="form-control">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Fréquence (en jours)</label>
+            <input type="number" name="form-${formIndex}-frequence" class="form-control" value="1" min="1" required>
           </div>
         </div>
         <div class="photo-forms-container" id="newOpPhotoFormsContainerForm${formIndex}"></div>

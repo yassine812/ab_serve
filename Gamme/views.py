@@ -98,6 +98,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
             # --- Mise à jour des gammes et opérations ---
             gammes = GammeControle.objects.filter(mission=missioncontrole)
             changes_made = False
+            changement_detecte = False  # Initialize at method level
             
             for gamme in gammes:
                 intitule = request.POST.get(f'{gamme.id}-intitule', gamme.intitule)
@@ -105,10 +106,11 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 if not intitule or intitule.strip() == '':
                     intitule = f"Gamme: {missioncontrole.intitule}"
                 statut = request.POST.get(f'{gamme.id}-statut', 'False')
-                # Initialize changement_detecte at the beginning of the gamme loop
-                changement_detecte = False
+# Reset changement_detecte for each gamme
+                gamme_change_detected = False
 
                 if intitule != gamme.intitule or (statut == 'True') != gamme.statut:
+                    gamme_change_detected = True
                     changement_detecte = True
 
                 # Process existing operations
@@ -124,9 +126,10 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     criteres = request.POST.get(f"{op.id}-criteres", op.criteres)
 
                     if titre != op.titre or str(ordre) != str(op.ordre) or description != op.description or criteres != op.criteres:
+                        gamme_change_detected = True
                         changement_detecte = True
                         # Update the operation in place if no new gamme is being created
-                        if not changement_detecte:
+                        if not gamme_change_detected:
                             op.titre = titre
                             op.ordre = ordre
                             op.description = description
@@ -138,32 +141,37 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                         desc = request.POST.get(f"photo_{photo.id}_description", photo.description)
                         delete = request.POST.get(f"photo_{photo.id}_DELETE", None)
                         if desc != photo.description or delete is not None:
+                            gamme_change_detected = True
                             changement_detecte = True
                             # Update photo in place if no new gamme is being created
-                            if not changement_detecte and desc != photo.description:
+                            if not gamme_change_detected and desc != photo.description:
                                 photo.description = desc
                                 photo.save()
 
                     # Check for new dynamic photos
                     has_new_photos = any(key.startswith(f'photo_{op.id}_') for key in request.FILES.keys())
                     if has_new_photos:
+                        gamme_change_detected = True
                         changement_detecte = True
 
                 # Check for changes in moyens de contrôle
                 selected_moyens_ids = set([k.split('_')[-1] for k in request.POST.keys() if k.startswith(f'gamme_{gamme.id}_moyen_controle_') and request.POST.get(k) == 'on'])
                 current_moyens_ids = set([str(m.id) for m in gamme.moyens_controle.all()])
                 if selected_moyens_ids != current_moyens_ids:
+                    gamme_change_detected = True
                     changement_detecte = True
 
                 # Check for new operations
                 for key in request.POST.keys():
                     if key.startswith(f"newop_{gamme.id}_"):
+                        gamme_change_detected = True
                         changement_detecte = True
                         break
 
                 # Check for files related to new operations
                 for key in request.FILES.keys():
                     if key.startswith("newphoto_") or key.startswith(f"newop_{gamme.id}_") or key.startswith("formop_"):
+                        gamme_change_detected = True
                         changement_detecte = True
                         break
 
@@ -171,7 +179,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 new_gamme = gamme
                 
                 # Si changement → créer nouvelle version de la gamme
-                if changement_detecte:
+                if gamme_change_detected:
                     changes_made = True
                     # Get the latest version number
                     latest_version = float(gamme.version) if gamme.version else 1.0
