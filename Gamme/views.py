@@ -8,8 +8,6 @@ from django.db.models import Max, Prefetch
 # Set up logging
 logger = logging.getLogger(__name__)
 from django.template.loader import render_to_string
-from io import BytesIO
-import os
 import os
 import logging
 import json
@@ -985,15 +983,21 @@ class DashboardView(LoginRequiredMixin, View):
 
 class GammeControleCreateView(LoginRequiredMixin, UserPassesTestMixin, View):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1097,15 +1101,21 @@ class GammeControleCreateView(LoginRequiredMixin, UserPassesTestMixin, View):
 
 class GammeControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1121,15 +1131,21 @@ class GammeControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 class GammeControleUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1193,15 +1209,21 @@ class GammeControleDetailView(LoginRequiredMixin, DetailView):
 
 class GammeControleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1215,15 +1237,21 @@ from django.db import transaction
 
 class MissionControleCreateView(LoginRequiredMixin, UserPassesTestMixin, View):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1599,20 +1627,21 @@ class MissionControleListView(LoginRequiredMixin, UserPassesTestMixin, ListView)
     raise_exception = True  # This will raise PermissionDenied instead of redirecting
     
     def test_func(self):
-        # Only allow access if user is admin or responsable
+        # Only allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
             
-        # Check if user is superuser or has the right role
+        # Check if user is superuser
         if user.is_superuser:
             return True
             
-        # Check if user has a profile with the right role
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1817,15 +1846,21 @@ class OperatorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateVie
 
 class EpiCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1848,15 +1883,21 @@ class EpiCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
 class EpiListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1872,15 +1913,21 @@ class EpiListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 class EpiUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1905,15 +1952,21 @@ class EpiUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 class EpiDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1933,15 +1986,21 @@ class EpiDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 
 class UserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -1967,15 +2026,21 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -2007,15 +2072,21 @@ class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 class UserDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -2075,9 +2146,12 @@ class login(LoginView):
     redirect_authenticated_user = True
     
     def get_success_url(self):
-        if self.request.user.is_op:
+        user = self.request.user
+        if user.is_op:
             messages.info(self.request, 'Vous êtes connecté en tant qu\'opérateur.')
             return reverse_lazy('Gamme:operateur_dashboard')
+        elif user.is_rs or (hasattr(user, 'profile') and user.profile.role in ['responsable', 'ro']):
+            messages.info(self.request, 'Vous êtes connecté en tant que responsable.')
         return reverse_lazy('Gamme:missioncontrole_list')
 class RegisterView(CreateView):
     model = User
@@ -2461,15 +2535,21 @@ class MoyenControleListView(LoginRequiredMixin, ListView):
 
 class MoyenControleCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -2490,15 +2570,21 @@ class MoyenControleCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateVie
 
 class MoyenControleUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
@@ -2519,15 +2605,21 @@ class MoyenControleUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVie
 
 class MoyenControleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def test_func(self):
+        # Allow access if user is admin, responsable, or ro
         user = self.request.user
         if not user.is_authenticated:
             return False
+            
+        # Check if user is superuser
         if user.is_superuser:
             return True
-        try:
-            return user.profile.role in ['admin', 'responsable']
-        except Exception:
-            return False
+            
+        # Check if user has the right role (either through profile.role or is_rs/is_ro flag)
+        if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+            return user.profile.role in ['admin', 'responsable', 'ro']
+            
+        # Fallback to boolean flags if profile.role doesn't exist
+        return user.is_rs or user.is_ro
     
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied

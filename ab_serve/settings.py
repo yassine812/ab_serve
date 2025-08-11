@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-j0l_)#a9@m8v0xivvfm_qfj!dp55b3r1+@*%69#jyx021+r!r0
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG =True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
@@ -37,16 +37,15 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Additional locations of static files
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
+    os.path.join(BASE_DIR, 'Gamme', 'static'),
 ]
 
-# Ensure STATICFILES_DIRS is a list of paths
-STATICFILES_DIRS = [str(path) for path in STATICFILES_DIRS]
-
-# Add support for static files in development
-if DEBUG:
-    STATICFILES_DIRS.append(os.path.join(BASE_DIR, 'Gamme', 'static'))
+# Ensure all paths in STATICFILES_DIRS are strings
+STATICFILES_DIRS = [str(path) for path in STATICFILES_DIRS if os.path.exists(str(path))]
 
 # Media files (Uploaded files)
 MEDIA_URL = '/media/'
