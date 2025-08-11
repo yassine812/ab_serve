@@ -41,7 +41,10 @@
                                         <div class="form-group">
                                             <label class="form-label fw-bold">Rôle</label>
                                             <input type="text" class="form-control form-control-lg" 
-                                                value="{% if user.is_op %}Admin{% elif user.is_rs %}Responsable{% endif %}" readonly>
+                                                value="{% if user.is_admin %}Admin
+                                                       {% elif user.is_rs %}Responsable
+                                                       {% elif user.is_ro %}RO
+                                                       {% elif user.is_op %}Opérateur{% endif %}" readonly>
                                         </div>
                                     </div>
                                 </div>
