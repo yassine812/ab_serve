@@ -239,19 +239,19 @@
 
                   {% if forloop.first %}
                   <div class="d-flex gap-2 mb-3">
-                    <a class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" href="#formGamme{{ gamme.id }}">
+                    <a class="btn btn-sm btn-outline-warning toggle-buttons" data-bs-toggle="collapse" href="#formGamme{{ gamme.id }}" data-targets="formGamme{{ gamme.id }}">
                       <i class="bi bi-pencil"></i> Modifier cette gamme
                     </a>
 
-                    <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" href="#operationsGamme{{ gamme.id }}">
+                    <a class="btn btn-sm btn-outline-primary toggle-buttons" data-bs-toggle="collapse" href="#operationsGamme{{ gamme.id }}" data-targets="operationsGamme{{ gamme.id }}">
                       Modifier les opérations
                     </a>
 
-                    <button type="button" class="btn btn-sm btn-outline-success" onclick="showAddOperationForm('{{ gamme.id }}')">
+                    <a class="btn btn-sm btn-outline-success toggle-buttons" data-bs-toggle="collapse" href="#addOperationGamme{{ gamme.id }}" data-gamme-id="{{ gamme.id }}">
                       <i class="bi bi-plus-circle"></i> Ajouter opération
-                    </button>
+                    </a>
 
-                    <a class="btn btn-sm btn-outline-info" data-bs-toggle="collapse" href="#tableOperationsGamme{{ gamme.id }}">
+                    <a class="btn btn-sm btn-outline-info toggle-buttons" data-bs-toggle="collapse" href="#tableOperationsGamme{{ gamme.id }}" data-targets="tableOperationsGamme{{ gamme.id }}">
                       Afficher les opérations
                     </a>
                     <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#photoDefautModal{{ gamme.id }}">
@@ -1328,6 +1328,77 @@
       card.remove();
     }
   }
+
+  // Handle toggle buttons behavior
+  document.addEventListener('DOMContentLoaded', function() {
+    // Add click event to all toggle buttons
+    document.querySelectorAll('.toggle-buttons').forEach(button => {
+      button.addEventListener('click', function(e) {
+        // Get the target ID from the href attribute
+        const targetId = this.getAttribute('href').substring(1);
+        const gammeId = this.getAttribute('data-gamme-id') || targetId.match(/\d+/)[0];
+        
+        // Find all collapsible elements in the same gamme section
+        const gammeSection = this.closest('.accordion-body');
+        const allCollapsibles = gammeSection.querySelectorAll('.collapse');
+        
+        // If clicking the currently active button, don't do anything (let Bootstrap handle the toggle)
+        const targetElement = document.getElementById(targetId);
+        if (targetElement && targetElement.classList.contains('show')) {
+          // If this is the 'Add Operation' button and it's already open, initialize the form
+          if (targetId.startsWith('addOperationGamme')) {
+            showAddOperationForm(gammeId);
+          }
+          return;
+        }
+        
+        // Close all collapsibles
+        allCollapsibles.forEach(collapse => {
+          if (collapse.id !== targetId && collapse.classList.contains('show')) {
+            const collapseInstance = bootstrap.Collapse.getInstance(collapse);
+            if (collapseInstance) {
+              collapseInstance.hide();
+            }
+          }
+        });
+        
+        // If this is the 'Add Operation' button, initialize the form
+        if (targetId.startsWith('addOperationGamme')) {
+          // Use a small timeout to ensure the collapse animation completes
+          setTimeout(() => {
+            showAddOperationForm(gammeId);
+          }, 50);
+        }
+      });
+    });
+    
+    // Listen for when a collapsible is shown to update button states
+    document.querySelectorAll('.collapse').forEach(collapse => {
+      collapse.addEventListener('show.bs.collapse', function(e) {
+        const gammeId = this.id.replace(/\D+/g, '');
+        if (gammeId) {
+          // Remove active class from all toggle buttons for this gamme
+          document.querySelectorAll(`[data-targets*="${gammeId}"]`).forEach(btn => {
+            btn.classList.remove('active');
+          });
+          
+          // Add active class to the clicked button
+          const activeButton = document.querySelector(`[href="#${this.id}"]`);
+          if (activeButton) {
+            activeButton.classList.add('active');
+          }
+        }
+      });
+      
+      // Update button state when collapsible is hidden
+      collapse.addEventListener('hidden.bs.collapse', function(e) {
+        const activeButton = document.querySelector(`[href="#${this.id}"]`);
+        if (activeButton) {
+          activeButton.classList.remove('active');
+        }
+      });
+    });
+  });
 
   // Store moyens_controle data in a global variable
   window.moyensControleData = [];

@@ -843,7 +843,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 logger.error(f"Error copying defect photos: {str(e)}", exc_info=True)
                 # Continue with the redirect even if there's an error with copying photos
 
-        return redirect('Gamme:missioncontrole_list')
+        return redirect(f'/gamme/missioncontrole/update/{missioncontrole.id}/#gammes')
 
 
 class DashboardView(LoginRequiredMixin, View):
