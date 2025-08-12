@@ -70,12 +70,27 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
         # Get all EPIs
         all_epis = epi.objects.all()
         
+        # Get all defect photos for the mission's gammes
+        photo_defauts = PhotoDefaut.objects.filter(gamme__in=gammes).order_by('-date_ajout')
+        
+        # Group photos by gamme ID for easier access in template
+        photos_by_gamme = {}
+        for photo in photo_defauts:
+            if photo.gamme_id not in photos_by_gamme:
+                photos_by_gamme[photo.gamme_id] = []
+            photos_by_gamme[photo.gamme_id].append(photo)
+        
+        # Add photos to each gamme object
+        for gamme in gammes:
+            gamme.photo_defauts = photos_by_gamme.get(gamme.id, [])
+        
         context = {
             'missioncontrole': missioncontrole,
             'gammes': gammes,
             'operation_formset': operation_formset,
             'moyens_controle': moyens_controle_list,
             'epis': all_epis,
+            'photos_by_gamme': photos_by_gamme,  # For debugging/backward compatibility
         }
         
         return render(request, self.template_name, context)

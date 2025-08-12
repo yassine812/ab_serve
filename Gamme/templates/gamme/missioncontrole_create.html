@@ -50,9 +50,8 @@
         <div class="col-md-6">
           <label class="form-label">Statut</label>
           <select name="statut" id="missionStatut" class="form-select" required onchange="clearError(this)">
-            <option value="" disabled selected>Sélectionner un statut</option>
-            <option value="True" {% if mission_form.statut.value == True %}selected{% endif %}>Actif</option>
-            <option value="False" {% if mission_form.statut.value == False %}selected{% endif %}>Inactif</option>
+            <option value="True" selected>Actif</option>
+            <option value="False">Inactif</option>
           </select>
           <div id="statutRequiredError" class="invalid-feedback" style="display: none;">
             Le statut est obligatoire.
