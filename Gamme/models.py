@@ -57,6 +57,7 @@ class GammeControle(models.Model):
     version = models.CharField(max_length=100)
     version_num = models.DecimalField(max_digits=5, decimal_places=2, default=1.0)
     statut = models.BooleanField(default=True)
+    est_active = models.BooleanField(default=True, verbose_name='Est active')
     
     picto_s = models.BooleanField(default=False, verbose_name='Picto S')
     picto_r = models.BooleanField(default=False, verbose_name='Picto R')

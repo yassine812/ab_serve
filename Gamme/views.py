@@ -109,8 +109,37 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
 # Reset changement_detecte for each gamme
                 gamme_change_detected = False
 
-                if intitule != gamme.intitule or (statut == 'True') != gamme.statut:
-                    gamme_change_detected = True
+                # Check if there are actual content changes (not just status changes)
+                no_incident = request.POST.get(f'{gamme.id}-No_incident', gamme.No_incident)
+                commentaire = request.POST.get(f'{gamme.id}-commentaire', gamme.commantaire or '')
+                temps_alloue = request.POST.get(f'{gamme.id}-temps_alloue', gamme.Temps_alloué)
+                commentaire_identification = request.POST.get(f'{gamme.id}-commentaire_identification', gamme.commantaire_identification or '')
+                commentaire_non_conforme = request.POST.get(f'{gamme.id}-commentaire_non_conforme', gamme.commantaire_traitement_non_conforme or '')
+                
+                # Handle file upload for photo_non_conforme
+                photo_non_conforme = request.FILES.get(f'{gamme.id}-photo_non_conforme')
+                if not photo_non_conforme and hasattr(gamme, 'photo_traitement_non_conforme'):
+                    photo_non_conforme = gamme.photo_traitement_non_conforme
+                
+                picto_s = request.POST.get(f'{gamme.id}-picto_s') == 'on'
+                picto_r = request.POST.get(f'{gamme.id}-picto_r') == 'on'
+                
+                content_changed = (
+                    intitule != gamme.intitule or
+                    no_incident != gamme.No_incident or
+                    commentaire != (gamme.commantaire or '') or
+                    temps_alloue != gamme.Temps_alloué or
+                    commentaire_identification != (gamme.commantaire_identification or '') or
+                    commentaire_non_conforme != (gamme.commantaire_traitement_non_conforme or '') or
+                    (photo_non_conforme is not None and hasattr(gamme, 'photo_traitement_non_conforme') and 
+                     photo_non_conforme != gamme.photo_traitement_non_conforme) or
+                    picto_s != gamme.picto_s or
+                    picto_r != gamme.picto_r
+                )
+
+                # Only mark as changed if there are actual content changes
+                if content_changed or (statut == 'True') != gamme.statut:
+                    gamme_change_detected = content_changed
                     changement_detecte = True
 
                 # Process existing operations
@@ -125,7 +154,15 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     description = request.POST.get(f"{op.id}-description", op.description)
                     criteres = request.POST.get(f"{op.id}-criteres", op.criteres)
 
-                    if titre != op.titre or str(ordre) != str(op.ordre) or description != op.description or criteres != op.criteres:
+                    # Check for actual operation changes
+                    op_changed = any([
+                        titre != op.titre,
+                        str(ordre) != str(op.ordre),
+                        description != op.description,
+                        criteres != op.criteres
+                    ])
+                    
+                    if op_changed:
                         gamme_change_detected = True
                         changement_detecte = True
                         # Update the operation in place if no new gamme is being created
@@ -178,8 +215,13 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                 # Initialize new_gamme to the current gamme by default
                 new_gamme = gamme
                 
-                # Si changement → créer nouvelle version de la gamme
-                if gamme_change_detected:
+                # If only status changed, just update the existing gamme
+                if not gamme_change_detected and statut != gamme.statut:
+                    gamme.statut = (statut == 'True')
+                    gamme.save()
+                    changes_made = True
+                # If there are content changes → create new version of the gamme
+                elif gamme_change_detected and content_changed:
                     changes_made = True
                     # Get the latest version number
                     latest_version = float(gamme.version) if gamme.version else 1.0
