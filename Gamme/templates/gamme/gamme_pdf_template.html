@@ -42,15 +42,20 @@
             text-overflow: ellipsis;
         }
         .photo-cell {
-            text-align: center;
-            padding: 1px;
-            max-height: 40px;
+            padding: 2px;
+            height: 100px;
             overflow: hidden;
+            white-space: nowrap;
+            text-align: center;
         }
         .photo {
-            max-width: 100%;
-            max-height: 10px;
+            max-height: 96px;
+            max-width: 45%;
+            width: auto;
             object-fit: contain;
+            display: inline-block;
+            vertical-align: middle;
+            margin: 0 2px;
         }
     </style>
 </head>
@@ -81,7 +86,7 @@
                 <td style="vertical-align: middle; padding: 0; text-align: left;">
                     <div style="margin: 0; padding: 20px 10px 5px 100px; background-color: #e6f2ff;">
                         <strong style="font-size: 2.2em;">GAMME DE TRAVAIL</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        <span style="margin-left: 10px; font-size: 1.7em; vertical-align: middle;">n° clt 001</span>
+                        <span style="margin-left: 10px; font-size: 1.7em; vertical-align: middle;">{{ gammecontrole.intitule }}</span>
                     </div>
                     <div style="padding: 5px 10px 5px 20px; font-size: 1.5em; font-style:initial;">
                         SITE : &nbsp;{{mission.section}}
@@ -153,17 +158,17 @@
             <table style="width: 100%; table-layout: fixed;  border-collapse: collapse; font-size: 8px; border: 1px solid #000;">
                 <tr style="vertical-align: middle; height: 30px;">
                     <td style="width: 230px; border-right: 1px solid #000; vertical-align: middle; padding: 2px 0 0 10px;">
-                        <span style="font-size:10px; display: inline-block; line-height: 1;">Client : &nbsp;{{mission.client}}</span>
+                        <span style="font-size:12px; display: inline-block; line-height: 1;">Client : &nbsp;{{mission.client}}</span>
                     </td>
                     <td style="vertical-align: middle;padding: 2px 0 0 10px; text-align: left; width: 300px;">
-                        <span style="font-size:10px;">Référence pièce :&nbsp;{{mission.reference}}</span>
+                        <span style="font-size:12px;">Référence pièce :&nbsp;{{mission.reference}}</span>
                     </td>
                     <td style="width: 400px;vertical-align: middle;padding: 2px 0 0 10px; text-align: left;">
-                        <span style="font-size:10px;">Désignation :&nbsp; {{mission.intitule}}</span>
+                        <span style="font-size:12px;">Désignation :&nbsp; {{mission.intitule}}</span>
 
                     </td>
                     <td style="width: 160px; vertical-align: middle; border: none;padding: 2px 0 0 10px;">
-                        <span style="font-size:10px;">Temps alloué :&nbsp; {{ temps_alloue|default:'' }}/jour</span>
+                        <span style="font-size:12px;">Temps alloué :&nbsp; {{ temps_alloue|default:'' }}/jour</span>
 
                     </td>
                 </tr>
@@ -171,27 +176,27 @@
             <table style="width: 100%;  margin: 0; border-collapse: collapse; font-size: 8px; border: 1px solid #000;">
                 <tr >
                     <td style="width: 90%; padding: 0;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <tr style="height: 40px; background-color:  #e6f2ff;">
-                                <th style="width: 8%; vertical-align: middle; text-align: center; font-size: 10px; padding: 5px; border: 1px solid #000;">N° OP</th>
-                                <th style="width: 32%; vertical-align: middle; text-align: center; font-size: 10px; padding: 5px; border: 1px solid #000;">OPÉRATION</th>
-                                <th style="width: 10%; vertical-align: middle; text-align: center; font-size: 10px;  border: 1px solid #000; white-space: normal;">Moyens de Contrôle & Fréquence</th>
-                                <th style="width: 50%; vertical-align: middle; text-align: center; font-size: 10px; padding: 5px; border: 1px solid #000; white-space: normal;">SCHEMAS, PHOTOS, DESCRIPTION</th>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 7px;">
+                            <tr style="height: 40px; background-color: #e6f2ff;">
+                                <th style="width: 8%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000;font-size: 10px;">N° OP</th>
+                                <th style="width: 32%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000;font-size: 10px;">OPÉRATION</th>
+                                <th style="width: 10%; vertical-align: middle; text-align: center; border: 1px solid #000; white-space: normal;font-size: 10px;">Moyens de Contrôle & Fréquence</th>
+                                <th style="width: 50%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000; white-space: normal;font-size: 10px;">SCHEMAS, PHOTOS, DESCRIPTION</th>
                             </tr>
                             {% for op_num, op in operations.items %}
                             {% if op.description or op.photos %}
-                            <tr style="min-height: 80px;">
-                                <td style="text-align: center; padding: 10px 5px; font-size: 10px; vertical-align: top; border: 1px solid #000;">{{ forloop.counter }}</td>
-                                <td style="text-align: left; padding: 10px 5px; font-size: 10px; vertical-align: top; border: 1px solid #000;">{{ op.description|default:'' }}</td>
+                            <tr style="min-height: 40px;">
+                                <td style="text-align: center; padding: 2px; vertical-align: middle; border: 1px solid #000;font-size: 10px;">{{ forloop.counter }}</td>
+                                <td style="text-align: left; padding: 2px; vertical-align: middle; border: 1px solid #000; font-size: 10px;">{{ op.description|default:'' }}</td>
                                 <td style="text-align: left; padding: 10px 5px; vertical-align: top; border: 1px solid #000; font-size: 10px;">
                                     {% if op.frequence or op.moyen_controle %}
                                         <strong>Fréquence :</strong> {{ op.frequence|default:'' }}<br>
                                         <strong>Mc :</strong> {{ op.moyen_controle|default:'' }}
                                     {% endif %}
                                 </td>
-                                <td style="padding: 10px 5px; vertical-align: top; border: 1px solid #000;" class="photo-cell{% if op.photos|length > 1 %} multiple-photos{% endif %}">
+                                <td style="padding: 2px; vertical-align: middle; border: 1px solid #000;" class="photo-cell">
                                 {% for photo in op.photos %}
-                                    <img src="{{ photo.image.url }}" class="photo{% if op.photos|length > 1 %} multiple{% endif %}">
+                                    <img src="{{ photo.image.url }}" class="photo">
                                 {% endfor %}
                                 </td>
                             </tr>
@@ -217,7 +222,7 @@
                                             <td style="border: 1px solid #000; text-align: center; font-size: 10px;background-color: #e6f2ff;"><strong>Validation CLIENT</strong></td>
                                         </tr>
                                         <tr>
-                                            <td style="height: 100px;border: 1px solid #000; text-align: center; font-size: 10px; text-align: left; ">
+                                            <td style="height:80px;border: 1px solid #000; text-align: center; font-size: 10px; text-align: left; ">
                                                 <div style="margin-bottom: 3px;"><strong>NOM :&nbsp;&nbsp;&nbsp;</strong> {{ creator_name }}</div>
                                                 <div style="margin-bottom: 3px;"><strong>FONCTION :&nbsp;&nbsp;</strong> {{ creator_role }}</div>
                                                 <div style="margin-bottom: 3px;"><strong>DATE :&nbsp;&nbsp;&nbsp;</strong> {{ gamme_creation_date|date:"d/m/Y" }}</div>
@@ -246,7 +251,7 @@
                                 
                                <td style="width: 50%; padding: 0; margin: 0; border: none; vertical-align: top;">
                                     <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; table-layout: fixed; height: 100%;">
-                                        <tr style="height: 80px;">
+                                        <tr style="height: 60px;">
                                             {% if epis %}
                                             {% for epi in epis|slice:":4" %}
                                             <td style="border: 1px solid #000; text-align: center; font-size: 10px; ">
@@ -364,12 +369,12 @@
                                     {% if not forloop.first %}</tr>{% endif %}
                                     <tr>
                                 {% endif %}
-                                <td style="border:1px solid #ddd;padding:15px;vertical-align:top;">
+                                <td style="border:1px solid #ddd;padding:5px;vertical-align:top;width:33.33%;">
                                     <div style="text-align:center;">
                                         <img src="{{ photo.image.url }}"
                                              alt="{% if photo.description %}{{ photo.description }}{% else %}Photo de défaut {{ forloop.counter }}{% endif %}"
-                                             style="max-width:100%;max-height:200px;display:block;margin:0 auto 10px;object-fit:contain;">
-                                        <div style="font-weight:bold;word-wrap:break-word;min-height:40px;">
+                                             style="max-width:100%;max-height:60px;display:block;margin:0 auto 2px;object-fit:contain;">
+                                        <div style="font-weight:bold;word-wrap:break-word;min-height:20px;font-size:8px;padding:0 2px;">
                                             {% if photo.description %}
                                                 {{ photo.description }}
                                             {% else %}

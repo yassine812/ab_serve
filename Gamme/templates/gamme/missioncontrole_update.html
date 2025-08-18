@@ -2022,18 +2022,32 @@
   });
 
   // Function to handle gamme validation
+  // This function is called when the user confirms the validation of a gamme
+  // It sends an AJAX request to the server to validate the gamme
+  // and updates the UI accordingly
   function validateGamme(gammeId) {
-    // Close the modal
+    console.log('Validating gamme ID:', gammeId);
+    
+    // Get the modal and confirm button
     const modal = bootstrap.Modal.getInstance(document.getElementById('confirmValidationModal' + gammeId));
-    if (modal) {
-      modal.hide();
+    const validateBtn = document.getElementById('confirmValidateBtn' + gammeId);
+    
+    if (!validateBtn) {
+      console.error('Validate button not found for gamme ID:', gammeId);
+      return;
     }
     
     // Show loading state
-    const validateBtn = document.querySelector(`#confirmValidationModal${gammeId} .btn-success`);
     const originalBtnText = validateBtn.innerHTML;
     validateBtn.disabled = true;
     validateBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Validation en cours...';
+    
+    // Close the modal
+    if (modal) {
+      modal.hide();
+    } else {
+      console.warn('Modal not found for gamme ID:', gammeId);
+    }
     
     // Call the validation endpoint
     fetch(`/gamme/gamme/${gammeId}/validate/`, {
@@ -2044,22 +2058,47 @@
       }
     })
     .then(response => {
+      console.log('Validation response status:', response.status);
       if (!response.ok) {
-        return response.json().then(err => { throw err; });
+        return response.json().then(err => { 
+          console.error('Validation error:', err);
+          throw err; 
+        });
       }
-      return response.json();
+      return response.json().then(data => {
+        console.log('Validation successful, data:', data);
+        return data;
+      });
     })
     .then(data => {
       if (data.success) {
-        // Show success message
-        const toast = new bootstrap.Toast(document.getElementById('toastSuccess'));
-        document.getElementById('toastSuccessMessage').textContent = data.message || 'Gamme validée avec succès !';
-        toast.show();
+        console.log('Updating UI for validated gamme ID:', gammeId);
+        // Find the validate button container (parent of the button) and update it
+        const validateButton = document.querySelector(`button[data-bs-target="#confirmValidationModal${gammeId}"]`);
+        if (!validateButton) {
+          console.error('Could not find validate button for gamme ID:', gammeId);
+        } else {
+          const validateButtonContainer = validateButton.parentNode;
+          validateButtonContainer.innerHTML = `
+            <button type="button" class="btn btn-sm btn-success" disabled>
+              <i class="bi bi-check-circle-fill"></i> Validée le ${new Date().toLocaleString('fr-FR')}
+            </button>
+          `;
+        }
         
-        // Reload the page after a short delay to show the toast
+        // Show success message
+        const toastEl = document.getElementById('toastSuccess');
+        const toast = new bootstrap.Toast(toastEl);
+        document.getElementById('toastSuccessMessage').textContent = data.message || 'Gamme validée avec succès !';
+        
+        // Reload the page to ensure all data is in sync
+        // We use a small timeout to ensure the toast is visible
         setTimeout(() => {
           window.location.reload();
-        }, 1500);
+        }, 1000);
+        
+        // Show the toast
+        toast.show();
       } else {
         throw new Error(data.error || 'Erreur inconnue lors de la validation');
       }

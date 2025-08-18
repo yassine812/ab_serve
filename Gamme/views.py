@@ -2215,7 +2215,7 @@ class login(LoginView):
         if user.is_op:
             messages.info(self.request, 'Vous êtes connecté en tant qu\'opérateur.')
             return reverse_lazy('Gamme:operateur_dashboard')
-        elif user.is_rs or (hasattr(user, 'profile') and user.profile.role in ['responsable', 'ro']):
+        elif user.is_rs or user.is_ro or user.is_admin:
             messages.info(self.request, 'Vous êtes connecté en tant que responsable.')
         return reverse_lazy('Gamme:missioncontrole_list')
 class RegisterView(CreateView):
@@ -2309,15 +2309,41 @@ def view_gamme_pdf(request, mission_id):
     if not gamme:
         raise Http404("Aucune gamme active trouvée pour cette mission.")
     
-    # Get the RS user (the one who created the gamme)
-    rs_user = gamme.created_by
-    creator_name = rs_user.get_full_name() or rs_user.username
-    creator_role = "Responsable Qualité"  # Default role
+    # Get the creator user and their role
+    creator = gamme.created_by
+    creator_name = creator.get_full_name() or creator.username
+    
+    # Determine creator's role based on their user type
+    if hasattr(creator, 'is_ro') and creator.is_ro:
+        creator_role = "Responsable Opérationnel"
+    elif hasattr(creator, 'is_rs') and creator.is_rs:
+        creator_role = "Responsable de Service"
+    elif hasattr(creator, 'is_admin') and creator.is_admin:
+        creator_role = "Administrateur"
+    else:
+        creator_role = "Responsable Qualité"  # Default role
     
     # Get validator info if exists
     validator_name = ""
     validator_role = "Responsable Qualité"
     validation_date = None
+    
+    # Get the most recent validation for this gamme
+    if gamme:
+        latest_validation = gamme.validations.order_by('-date_validation_user_ro').first()
+        if latest_validation and latest_validation.user_ro:
+            validator = latest_validation.user_ro
+            validator_name = f"{validator.first_name} {validator.last_name}".strip() or validator.username
+            
+            # Determine role based on user type
+            if hasattr(validator, 'is_ro') and validator.is_ro:
+                validator_role = "Responsable Opérationnel"
+            elif hasattr(validator, 'is_rs') and validator.is_rs:
+                validator_role = "Responsable de Service"
+            elif hasattr(validator, 'is_admin') and validator.is_admin:
+                validator_role = "Administrateur"
+                
+            validation_date = latest_validation.date_validation_user_ro
     
     # Get operations for the most recent gamme, ordered by 'ordre'
     operations_list = []
@@ -2538,15 +2564,41 @@ def download_gamme_pdf(request, mission_id):
     if not gamme:
         raise Http404("Aucune gamme active trouvée pour cette mission.")
     
-    # Get the RS user (the one who created the gamme)
-    rs_user = gamme.created_by
-    creator_name = rs_user.get_full_name() or rs_user.username
-    creator_role = "Responsable Qualité"  # Default role
+    # Get the creator user and their role
+    creator = gamme.created_by
+    creator_name = creator.get_full_name() or creator.username
+    
+    # Determine creator's role based on their user type
+    if hasattr(creator, 'is_ro') and creator.is_ro:
+        creator_role = "Responsable Opérationnel"
+    elif hasattr(creator, 'is_rs') and creator.is_rs:
+        creator_role = "Responsable de Service"
+    elif hasattr(creator, 'is_admin') and creator.is_admin:
+        creator_role = "Administrateur"
+    else:
+        creator_role = "Responsable Qualité"  # Default role
     
     # Get validator info if exists
     validator_name = ""
     validator_role = "Responsable Qualité"
     validation_date = None
+    
+    # Get the most recent validation for this gamme
+    if gamme:
+        latest_validation = gamme.validations.order_by('-date_validation_user_ro').first()
+        if latest_validation and latest_validation.user_ro:
+            validator = latest_validation.user_ro
+            validator_name = f"{validator.first_name} {validator.last_name}".strip() or validator.username
+            
+            # Determine role based on user type
+            if hasattr(validator, 'is_ro') and validator.is_ro:
+                validator_role = "Responsable Opérationnel"
+            elif hasattr(validator, 'is_rs') and validator.is_rs:
+                validator_role = "Responsable de Service"
+            elif hasattr(validator, 'is_admin') and validator.is_admin:
+                validator_role = "Administrateur"
+                
+            validation_date = latest_validation.date_validation_user_ro
     
     # Get operations for the most recent gamme, ordered by 'ordre'
     operations_list = []
@@ -2845,10 +2897,30 @@ def generate_and_save_gamme_pdf(request, mission_id):
                 status=400
             )
         
-        # Simple context for the template
+        # Get operations for the gamme
+        operations = {}
+        for i, op in enumerate(gamme.operations.all().order_by('ordre'), 1):
+            operations[i] = {
+                'description': op.description,
+                'photos': op.photooperation_set.all(),
+                'frequence': op.frequence,
+                'moyen_controle': op.moyen_controle
+            }
+        
+        # Get EPIs for the gamme
+        epis = gamme.epis.all() if hasattr(gamme, 'epis') else []
+        
+        # Context for the template
         context = {
             'mission': mission,
             'gammecontrole': gamme,
+            'operations': operations,
+            'epis': epis,
+            'creator_name': gamme.created_by.get_full_name() or gamme.created_by.username,
+            'creator_role': 'Responsable Qualité',
+            'validator_name': '',
+            'validator_role': 'Responsable Qualité',
+            'gamme_creation_date': gamme.date_creation,
             'no_toolbar': True,
             'modal': True,
         }
