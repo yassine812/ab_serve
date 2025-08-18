@@ -2395,11 +2395,15 @@ def view_gamme_pdf(request, mission_id):
                 print(f"  Date: {photo.date_ajout}")
                 
                 # Check if file exists
-                if photo.image:
-                    file_exists = os.path.exists(photo.image.path)
-                    print(f"  File exists: {file_exists}")
-                    if not file_exists:
-                        print(f"  WARNING: File does not exist at {photo.image.path}")
+                if photo and photo.image:
+                    try:
+                        file_exists = os.path.exists(photo.image.path)
+                        print(f"  File exists: {file_exists}")
+                        if not file_exists:
+                            print(f"  WARNING: File does not exist at {photo.image.path}")
+                    except Exception as e:
+                        print(f"  Error checking file existence: {str(e)}")
+                        file_exists = False
         except Exception as e:
             print(f"Error getting defect photos: {str(e)}")
             import traceback
@@ -2456,11 +2460,73 @@ def view_gamme_pdf(request, mission_id):
         'no_toolbar': no_toolbar
     })
     
-    # Use the appropriate template based on the request
-    if is_modal:
-        return render(request, 'gamme/gamme_pdf_modal_only.html', context)
-    else:
-        return render(request, 'gamme/gamme_pdf.html', context)
+    # Check if this is a download request
+    download = request.GET.get('download') == '1'
+    
+    # Generate and return the PDF
+    from django.http import HttpResponse
+    from xhtml2pdf import pisa
+    from io import BytesIO
+    from django.template.loader import get_template
+    from django.conf import settings
+    import os
+    
+    # Add the request to context for absolute URLs
+    context.update({
+        'STATIC_URL': request.build_absolute_uri(settings.STATIC_URL),
+        'MEDIA_URL': request.build_absolute_uri(settings.MEDIA_URL),
+    })
+    
+    # Use the gamme_pdf_template.html for PDF generation
+    template = get_template('gamme/gamme_pdf_template.html')
+    html = template.render(context)
+    
+    # Create a file-like buffer to receive PDF data
+    result = BytesIO()
+    
+    # Function to handle static files and images
+    def fetch_resources(uri, rel):
+        import os
+        from django.conf import settings
+        from urllib.parse import urlparse
+        
+        # Handle static files
+        if uri.startswith(settings.STATIC_URL):
+            path = os.path.join(settings.STATIC_ROOT, uri.replace(settings.STATIC_URL, ''))
+        # Handle media files
+        elif uri.startswith(settings.MEDIA_URL):
+            path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ''))
+        else:
+            # Handle absolute URLs (e.g., CDN)
+            parsed_uri = urlparse(uri)
+            if parsed_uri.netloc:
+                return uri
+            # Handle relative paths
+            path = os.path.join(settings.STATIC_ROOT, uri.lstrip('/'))
+        
+        # Ensure the path exists and return it
+        if os.path.exists(path):
+            return path
+        return uri
+    
+    # Convert HTML to PDF with proper resource handling
+    pdf = pisa.pisaDocument(
+        BytesIO(html.encode("UTF-8")), 
+        result,
+        encoding='UTF-8',
+        link_callback=fetch_resources
+    )
+    
+    if not pdf.err:
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        if download:
+            response['Content-Disposition'] = f'attachment; filename="gamme_mission_{mission.code}.pdf"'
+        else:
+            response['Content-Disposition'] = f'inline; filename="gamme_mission_{mission.code}.pdf"'
+        return response
+    
+    # If there was an error, return the error
+    return HttpResponse(f"Error generating PDF: {pdf.err}", status=500)
 
 def download_gamme_pdf(request, mission_id):
     """View to download the gamme PDF for a specific mission."""
@@ -2755,6 +2821,74 @@ def check_mission_code(request):
         return JsonResponse({'exists': exists})
     return JsonResponse({'exists': False})
 
+
+
+def generate_and_save_gamme_pdf(request, mission_id):
+    """Generate a PDF from the gamme template and save it to the mission."""
+    try:
+        from django.template.loader import render_to_string
+        from django.http import JsonResponse
+        from django.core.files.base import ContentFile
+        from io import BytesIO
+        from xhtml2pdf import pisa
+        from django.conf import settings
+        import os
+        
+        # Get the mission object
+        mission = get_object_or_404(MissionControle, id=mission_id)
+        
+        # Get the latest gamme for this mission
+        gamme = mission.latest_gamme
+        if not gamme:
+            return JsonResponse(
+                {'success': False, 'error': 'No gamme found for this mission'},
+                status=400
+            )
+        
+        # Simple context for the template
+        context = {
+            'mission': mission,
+            'gammecontrole': gamme,
+            'no_toolbar': True,
+            'modal': True,
+        }
+        
+        # Render the template
+        html_string = render_to_string('gamme/gamme_pdf_template.html', context)
+        
+        # Create PDF
+        result = BytesIO()
+        pdf = pisa.pisaDocument(
+            BytesIO(html_string.encode("UTF-8")), 
+            dest=result,
+            encoding='UTF-8'
+        )
+        
+        if not pdf.err:
+            # Delete old file if exists
+            if mission.pdf_file:
+                try:
+                    mission.pdf_file.delete(save=False)
+                except Exception as e:
+                    logger.warning(f"Could not delete old file: {str(e)}")
+            
+            # Save the new file
+            file_name = f'mission_{mission.id}_gamme.pdf'
+            mission.pdf_file.save(file_name, ContentFile(result.getvalue()), save=True)
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'PDF generated and saved successfully',
+                'pdf_url': request.build_absolute_uri(mission.pdf_file.url)
+            })
+        else:
+            raise Exception('Error generating PDF: ' + str(pdf.err))
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 def save_mission_pdf(request, mission_id):

@@ -209,122 +209,24 @@
         modal.show();
     }
 
-    // Function to generate and save PDF directly
+    // Function to generate and save PDF using server-side generation
     async function savePDF(missionId, button) {
         const originalContent = button.innerHTML;
         button.disabled = true;
         button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Génération...';
 
-        const tempContainers = [];
-
         try {
-            const pdfResponse = await fetch(`/gamme/pdf/${missionId}/`);
-            if (!pdfResponse.ok) throw new Error(`HTTP error! status: ${pdfResponse.status}`);
-            const html = await pdfResponse.text();
-
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({
-                orientation: 'landscape',
-                unit: 'mm',
-                format: 'a4',
-            });
-
-            const mainContainer = document.createElement('div');
-            mainContainer.innerHTML = html;
-
-            const pdfContent = mainContainer.querySelector('.pdf-content') || mainContainer;
-            const pageBreakNode = pdfContent.querySelector('.page-break');
-            
-            const pageElements = [];
-
-            if (pageBreakNode) {
-                // Page 1: Content before the page break
-                const page1 = document.createElement('div');
-                let currentNode = pdfContent.firstChild;
-                while (currentNode && currentNode !== pageBreakNode) {
-                    page1.appendChild(currentNode.cloneNode(true));
-                    currentNode = currentNode.nextSibling;
-                }
-                pageElements.push(page1);
-
-                // Page 2: The page break element and everything after it
-                const page2 = document.createElement('div');
-                while (currentNode) {
-                    page2.appendChild(currentNode.cloneNode(true));
-                    currentNode = currentNode.nextSibling;
-                }
-                pageElements.push(page2);
-
-            } else {
-                // If no page break, treat the whole thing as one page
-                pageElements.push(pdfContent.cloneNode(true));
-            }
-
-            console.log(`Found ${pageElements.length} pages to render.`);
-
-            for (let i = 0; i < pageElements.length; i++) {
-                const pageElement = pageElements[i];
-                
-                const pageRenderContainer = document.createElement('div');
-                pageRenderContainer.style.position = 'absolute';
-                pageRenderContainer.style.left = '-9999px';
-                pageRenderContainer.style.width = '1200px';
-                pageRenderContainer.appendChild(pageElement);
-                document.body.appendChild(pageRenderContainer);
-                tempContainers.push(pageRenderContainer);
-
-                if (i > 0) {
-                    pdf.addPage('a4', 'landscape');
-                }
-
-                console.log(`Rendering page ${i + 1}...`);
-                const canvas = await html2canvas(pageRenderContainer, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: true,
-                    width: 1200,
-                    windowWidth: 1200,
-                    onclone: (clonedDoc) => {
-                        // Force table borders to be visible in the canvas render
-                        const style = clonedDoc.createElement('style');
-                        style.innerHTML = 'table, th, td { border: 1px solid black !important; }';
-                        clonedDoc.body.appendChild(style);
-                    }
-                });
-
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                const pdfPageWidth = pdf.internal.pageSize.getWidth();
-                const pdfPageHeight = pdf.internal.pageSize.getHeight();
-                
-                const imgProps = pdf.getImageProperties(imgData);
-                const ratio = imgProps.height / imgProps.width;
-                let imgHeight = pdfPageWidth * ratio;
-                let imgWidth = pdfPageWidth;
-
-                // Scale image to fit the page while maintaining aspect ratio
-                if (imgHeight > pdfPageHeight - 10) { // -10 for margin
-                    imgHeight = pdfPageHeight - 10;
-                    imgWidth = imgHeight / ratio;
-                }
-                
-                const x = (pdfPageWidth - imgWidth) / 2;
-                const y = 5; // 5mm top margin
-
-                pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
-            }
-
-            console.log('PDF generated, preparing for upload...');
-            const pdfBlob = pdf.output('blob');
-            const formData = new FormData();
-            formData.append('pdf_file', pdfBlob, `mission_${missionId}.pdf`);
-            
             const csrftoken = getCookie('csrftoken');
             if (!csrftoken) throw new Error('CSRF token not found');
             
-            const response = await fetch(`/gamme/missioncontrole/${missionId}/save-pdf/`, {
+            // Call our new server-side PDF generation endpoint
+            const response = await fetch(`/gamme/missioncontrole/${missionId}/generate-pdf/`, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrftoken, 'Accept': 'application/json' },
-                body: formData,
+                headers: { 
+                    'X-CSRFToken': csrftoken, 
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
                 credentials: 'same-origin'
             });
 
@@ -342,7 +244,6 @@
             console.error('Error in savePDF:', error);
             showAlert('danger', `Erreur lors de la génération du PDF: ${error.message}`);
         } finally {
-            tempContainers.forEach(c => document.body.removeChild(c));
             button.disabled = false;
             button.innerHTML = originalContent;
         }

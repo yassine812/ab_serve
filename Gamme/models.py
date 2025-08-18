@@ -52,7 +52,14 @@ class GammeControle(models.Model):
     Temps_alloué = models.IntegerField(null=True, blank=True)
     commantaire_identification = models.CharField(max_length=100, null=True, blank=True)
     commantaire_traitement_non_conforme = models.CharField(max_length=100, null=True, blank=True)
-    photo_traitement_non_conforme = models.ImageField(upload_to='photos/non_conformes/gamme_{instance.gamme.id}/{filename}', null=True, blank=True)
+    # Use a callable to build a deterministic path instead of a format string with {instance...}
+    def photo_traitement_non_conforme_upload_to(instance, filename):
+        # Store under photos/non_conformes/gamme_<gamme_id>/<filename>
+        # instance is GammeControle
+        gid = instance.id or 0
+        return f'photos/non_conformes/gamme_{gid}/{filename}'
+
+    photo_traitement_non_conforme = models.ImageField(upload_to=photo_traitement_non_conforme_upload_to, null=True, blank=True)
     No_incident = models.CharField(max_length=100)
     version = models.CharField(max_length=100)
     version_num = models.DecimalField(max_digits=5, decimal_places=2, default=1.0)
