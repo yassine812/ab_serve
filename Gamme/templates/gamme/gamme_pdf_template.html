@@ -200,6 +200,8 @@
                                 {% if op.1.frequence or op.1.moyen_controle %}
                                     <div style="margin-bottom: 8px;"><strong>Fréquence :</strong> {{ op.1.frequence|default:'' }}</div>
                                     <div><strong>Mc :</strong> {{ op.1.moyen_controle|default:'' }}</div>
+                                    <div><strong>Critères :</strong> {{ op.1.criteres|default:'' }}</div>
+                                    
                                 {% else %}
                                     &nbsp;
                                 {% endif %}
@@ -270,41 +272,37 @@
                                 </table>
                             </td>
                             <td style="width: 50%; padding: 0; margin: 0; border: 1px solid #000; border-top: none; vertical-align: top;">
+                                {% if epis %}
                                 <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; table-layout: fixed;">
                                     <tr>
-                                        {% if epis %}
-                                            {% for epi in epis|slice:":4" %}
-                                            <td style="border: 1px solid #000; text-align: center; padding: 5px; vertical-align: middle; height: 120px;">
-                                                <div style="height: 80px; display: flex; align-items: center; justify-content: center;">
-                                                    {% if epi.photo %}
-                                                        <img src="{{ epi.photo.url }}" alt="{{ epi.nom }}" style="max-width: 80px; max-height: 80px; display: block; margin: 0 auto;">
-                                                    {% else %}
-                                                        <div style="height: 60px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border: 1px dashed #ccc; font-size: 9px; width: 80px;">
-                                                            Pas de photo
-                                                        </div>
-                                                    {% endif %}
-                                                </div>
-                                            </td>
-                                            {% endfor %}
-                                        {% endif %}
+                                        {% for epi in epis|slice:":4" %}
+                                        <td style="border: 1px solid #000; text-align: center; padding: 5px; vertical-align: middle; height: 120px;">
+                                            <div style="height: 80px; display: flex; align-items: center; justify-content: center;">
+                                                {% if epi.photo %}
+                                                    <img src="{{ epi.photo.url }}" alt="{{ epi.nom }}" style="max-width: 80px; max-height: 80px; display: block; margin: 0 auto;">
+                                                {% else %}
+                                                    <div style="height: 60px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border: 1px dashed #ccc; font-size: 9px; width: 80px;">
+                                                        Pas de photo
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        {% endfor %}
                                     </tr>
                                     <tr>
-                                        {% if epis %}
-                                            {% for epi in epis %}
-                                            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px; vertical-align: middle; ">
-                                                {{ epi.nom|default:'&nbsp;' }}
-                                            </td>
-                                            {% endfor %}
-                                        {% endif %}
+                                        {% for epi in epis %}
+                                        <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px; vertical-align: middle; ">
+                                            {{ epi.nom|default:'&nbsp;' }}
+                                        </td>
+                                        {% endfor %}
                                     </tr>
                                     <tr>
-                                        {% if epis %}
-                                            {% for epi in epis %}
-                                            <td style="border: 1px solid #000; text-align: center; vertical-align: middle; font-size: 16px;  padding: 10px 0; height: 100px;">X</td>
-                                            {% endfor %}
-                                        {% endif %}
+                                        {% for epi in epis %}
+                                        <td style="border: 1px solid #000; text-align: center; vertical-align: middle; font-size: 16px;  padding: 10px 0; height: 100px;">X</td>
+                                        {% endfor %}
                                     </tr>
                                 </table>
+                                {% endif %}
                             </td>
                         </tr>
                     </table>

@@ -401,6 +401,13 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                             op.moyen_controle = moyen_controle_value
                         
                         op.save()
+
+                        # Update moyens de contrôle for the operation
+                        moyens_ids = request.POST.getlist(f'op_{op.id}_moyens_controle')
+                        if moyens_ids:
+                            op.moyenscontrole.set(moyens_ids)
+                        else:
+                            op.moyenscontrole.clear()
                         
                         # Handle photos for the operation
                         self._handle_operation_photos(request, op)
@@ -554,13 +561,13 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     )
                     
                     # Get and set moyens de contrôle for this new operation
-                    moyens_ids = request.POST.getlist(f'newop_{gamme.id}_{i}_moyens')
+                    moyens_ids = request.POST.getlist(f'newop_{gamme.id}_{i}_moyens_controle')
                     if moyens_ids:
                         try:
-                            moyen = moyens_controle.objects.get(id=moyens_ids[0])  # Assuming single selection
-                            new_op.moyenscontrole = moyen
-                            new_op.save()
-                        except (moyens_controle.DoesNotExist, ValueError):
+                            selected_moyens = moyens_controle.objects.filter(id__in=moyens_ids)
+                            if selected_moyens:
+                                new_op.moyenscontrole.set(selected_moyens)
+                        except (ValueError):
                             pass
 
                     # Process photos for this operation
