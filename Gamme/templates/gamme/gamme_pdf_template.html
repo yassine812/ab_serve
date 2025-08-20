@@ -190,7 +190,7 @@
                             {% if op.description or op.photos %}
                             <tr style="min-height: 70px; line-height: 1.2;">
                                 <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: 1px solid #000; font-size: 9px; width: 8%;">{{ forloop.counter }}</td>
-                                <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 32%;">{{ op.description|default:'' }}</td>
+                                <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 32%; word-break: break-word;">{{ op.description|default:''|linebreaksbr }}</td>
                                 <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 10%;">
                                     {% if op.frequence or op.moyen_controle %}
                                         <div style="margin-bottom: 8px;"><strong>Fréquence :</strong> {{ op.frequence|default:'' }}</div>
