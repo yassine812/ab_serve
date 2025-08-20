@@ -176,199 +176,203 @@
                     </td>
                 </tr>
             </table>
-            <table style="width: 100%; margin: 0; border-collapse: collapse; font-size: 8px; border: 1px solid #000; table-layout: fixed;">
-                <tr>
-                    <td style="width: 90%; padding: 0;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 7px;">
-                            <tr style="height: 40px; background-color: #e6f2ff;">
-                                <th style="width: 8%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000;font-size: 10px;">N° OP</th>
-                                <th style="width: 32%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000;font-size: 10px;">OPÉRATION</th>
-                                <th style="width: 10%; vertical-align: middle; text-align: center; border: 1px solid #000; white-space: normal;font-size: 10px;">Moyens de Contrôle & Fréquence</th>
-                                <th style="width: 50%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000; white-space: normal;font-size: 10px;">SCHEMAS, PHOTOS, DESCRIPTION</th>
-                            </tr>
-                            {% for op_num, op in operations.items %}
-                            {% if op.description or op.photos %}
-                            <tr style="min-height: 70px; line-height: 1.2;">
-                                <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: 1px solid #000; font-size: 9px; width: 8%;">{{ forloop.counter }}</td>
-                                <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 32%; word-break: break-word;">{{ op.description|default:''|linebreaksbr }}</td>
-                                <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 10%;">
-                                    {% if op.frequence or op.moyen_controle %}
-                                        <div style="margin-bottom: 8px;"><strong>Fréquence :</strong> {{ op.frequence|default:'' }}</div>
-                                        <div><strong>Mc :</strong> {{ op.moyen_controle|default:'' }}</div>
-                                    {% else %}
-                                        &nbsp;
-                                    {% endif %}
-                                </td>
-                                <td style="padding: 5px; border: 1px solid #000; width: 50%;" class="photo-cell">
-                                {% if op.photos %}
-                                <div style="display: flex; flex-wrap: nowrap; gap: 10px; overflow-x: auto; padding: 5px 0;">
-                                    {% for photo in op.photos %}
-                                        {% if photo.image %}
-                                        <div style="flex: 0 0 auto; width: 150px; height: 100px; display: flex; align-items: center; justify-content: center; background: #f5f5f5;">
-                                            <img src="{{ photo.image.url }}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
-                                        </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
+            {% for op in operations.items %}
+    {% if forloop.first or forloop.counter0|divisibleby:3 %}
+        {% if not forloop.first %}
+            <div style="page-break-before: always;"></div>
+        {% endif %}
+        <table style="width: 100%; margin: 0; border-collapse: collapse; font-size: 8px; border: 1px solid #000; table-layout: fixed;">
+            <tr>
+                <td style="width: 90%; padding: 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 7px;">
+                        <tr style="height: 40px; background-color: #e6f2ff;">
+                            <th style="width: 8%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000;font-size: 10px;">N° OP</th>
+                            <th style="width: 32%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000;font-size: 10px;">OPÉRATION</th>
+                            <th style="width: 10%; vertical-align: middle; text-align: center; border: 1px solid #000; white-space: normal;font-size: 10px;">Moyens de Contrôle & Fréquence</th>
+                            <th style="width: 50%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000; white-space: normal;font-size: 10px;">SCHEMAS, PHOTOS, DESCRIPTION</th>
+                        </tr>
+    {% endif %}
+                        {% if op.1.description or op.1.photos %}
+                        <tr style="min-height: 70px; line-height: 1.2;">
+                            <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: 1px solid #000; font-size: 9px; width: 8%;">{{ forloop.counter }}</td>
+                            <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 32%; word-break: break-word;">{{ op.1.description|default:''|linebreaksbr }}</td>
+                            <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 10%;">
+                                {% if op.1.frequence or op.1.moyen_controle %}
+                                    <div style="margin-bottom: 8px;"><strong>Fréquence :</strong> {{ op.1.frequence|default:'' }}</div>
+                                    <div><strong>Mc :</strong> {{ op.1.moyen_controle|default:'' }}</div>
                                 {% else %}
                                     &nbsp;
                                 {% endif %}
-                                </td>
-                            </tr>
-                            {% endif %}
-                            {% endfor %}
-                           
-                            
-                            <tr>
-                                <td colspan="3" style="border: 1px solid #000; padding: 0; margin: 0; vertical-align: top;">
-                                    <table style="border-collapse: collapse; width: 100%; margin: 0; table-layout: fixed;">
-                                        <tr>
-                                            <td colspan="4" style="border: 1px solid #000; text-align: center; font-size: 12px; color: #ff0000; padding: 5px 0;">
-                                                IMPORTANT: UN point de contrôle par numéro.<br>
-                                                Le point 8 peut-être utilisé ponctuellement pour optimiser la répartition des contrôles.
-                                            </td>
-                                        </tr>
-                                        <tr >
-                                            <td rowspan="2" style="width: 40px; border: 1px solid #000; text-align: center; font-size: 10px; vertical-align: top; padding: 10px 5px; background-color: #e6f2ff;"></td>
-                                            <td style="width: 120px; border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 0;">
-                                                <strong>Rédacteur AB Serve</strong>
-                                            </td>
-                                            <td style="border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 5px;">
-                                                <strong>Validation AB Serve<br>(Resp. Site / Resp. Régional)</strong>
-                                            </td>
-                                            <td style="border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 5px;">
-                                                <strong>Validation CLIENT</strong>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                             <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top;  height: 150px;">
-                                                <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ creator_name|default:'&nbsp;' }}</div>
-                                                <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> {{ creator_role|default:'&nbsp;' }}</div>
-                                                <div style="margin-bottom: 5px;"><strong>DATE :</strong> {{ gamme_creation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>
-                                                <div><strong>VISA :</strong> Électronique</div>
-                                            </td>
-                                            <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top;  height: 150px;">
-                                                {% if validation_date %}
-                                                <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ validator_name|default:'&nbsp;' }}</div> 
-                                                <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> {{ validator_role|default:'&nbsp;' }}</div>         
-                                                <div style="margin-bottom: 5px;"><strong>DATE :</strong> {{ validation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>    
-                                                <div><strong>VISA :</strong> Électronique</div>
-                                                {% else %}
-                                                &nbsp;
-                                                {% endif %}
-                                            </td>
-                                            <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top; height: 188px;">
-                                                <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ mission.client|default:'&nbsp;' }}</div> 
-                                                <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> Qualité</div>  
-                                                <div style="margin-bottom: 5px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div> 
-                                                <div><strong>VISA :</strong> Électronique</div>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                                <td style="width: 50%; padding: 0; margin: 0; border: 1px solid #000; border-top: none; vertical-align: top;">
-                                    <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; table-layout: fixed;">
-                                        <tr>
-                                            {% if epis %}
-                                                {% for epi in epis|slice:":4" %}
-                                                <td style="border: 1px solid #000; text-align: center; padding: 5px; vertical-align: middle; height: 120px;">
-                                                    <div style="height: 80px; display: flex; align-items: center; justify-content: center;">
-                                                        {% if epi.photo %}
-                                                            <img src="{{ epi.photo.url }}" alt="{{ epi.nom }}" style="max-width: 80px; max-height: 80px; display: block; margin: 0 auto;">
-                                                        {% else %}
-                                                            <div style="height: 60px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border: 1px dashed #ccc; font-size: 9px; width: 80px;">
-                                                                Pas de photo
-                                                            </div>
-                                                        {% endif %}
-                                                    </div>
-                                                </td>
-                                                {% endfor %}
-                                            {% endif %}
-                                        </tr>
-                                        <tr>
-                                            {% if epis %}
-                                                {% for epi in epis %}
-                                                <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px; vertical-align: middle; ">
-                                                    {{ epi.nom|default:'&nbsp;' }}
-                                                </td>
-                                                {% endfor %}
-                                            {% endif %}
-                                        </tr>
-                                        <tr>
-                                            {% if epis %}
-                                                {% for epi in epis %}
-                                                <td style="border: 1px solid #000; text-align: center; vertical-align: middle; font-size: 16px;  padding: 10px 0; height: 100px;">X</td>
-                                                {% endfor %}
-                                            {% endif %}
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                            </table>
-
-                    </td>
-                    <td style="width: 10%; border-left: 1px solid #000; vertical-align: top; padding: 0;">
-                        <table style="width: 100%; height: 100%; border-collapse: collapse;">
-                            <tr style="height: 40px; background-color: #e6f2ff;">
-                                <th style="border: 1px solid #000; text-align: center; font-size: 10px;">Identification, marquage, traçabilité</th>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #000; height: 80px; vertical-align: top; font-size: 11px; text-align: center;">
-                                    &nbsp;<strong>{{gammecontrole.commantaire_identification}}</strong>
-
-                                </td>
-                            </tr>
-                            <tr style="height: 30px; background-color: #e6f2ff;">
-                                <th style="border: 1px solid #000; text-align: center; font-size: 23px; font-weight: bold; margin: 0; line-height: 30px;">En cas de détection de non conformité</th>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #000; height: 80px; vertical-align: top; font-size: 16px; text-align: center;">
-                                    &nbsp;<strong style="font-size: 18px; color: red; font-weight: bold;">{{ gammecontrole.commantaire_traitement_non_conforme }}</strong>
-                                    {% if gammecontrole.photo_traitement_non_conforme and '%7B' not in gammecontrole.photo_traitement_non_conforme.url and '{' not in gammecontrole.photo_traitement_non_conforme.url %}
-                                    <div style="margin-top: 10px; text-align: center;">
-                                        <img src="{{ gammecontrole.photo_traitement_non_conforme.url }}" alt="Photo de non-conformité" style="max-width: 100%; max-height: 200px; object-fit: contain;">
+                            </td>
+                            <td style="padding: 5px; border: 1px solid #000; width: 50%;" class="photo-cell">
+                            {% if op.1.photos %}
+                            <div style="display: flex; flex-wrap: nowrap; gap: 10px; overflow-x: auto; padding: 5px 0;">
+                                {% for photo in op.1.photos %}
+                                    {% if photo.image %}
+                                    <div style="flex: 0 0 auto; width: 150px; height: 100px; display: flex; align-items: center; justify-content: center; background: #f5f5f5;">
+                                        <img src="{{ photo.image.url }}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
                                     </div>
-                                {% endif %}
-                           
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                                &nbsp;
+                            {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+    {% if forloop.counter|divisibleby:3 or forloop.last %}
+                        <tr>
+                            <td colspan="3" style="border: 1px solid #000; padding: 0; margin: 0; vertical-align: top;">
+                                <table style="border-collapse: collapse; width: 100%; margin: 0; table-layout: fixed;">
+                                    <tr>
+                                        <td colspan="4" style="border: 1px solid #000; text-align: center; font-size: 12px; color: #ff0000; padding: 5px 0;">
+                                            IMPORTANT: UN point de contrôle par numéro.<br>
+                                            Le point 8 peut-être utilisé ponctuellement pour optimiser la répartition des contrôles.
+                                        </td>
+                                    </tr>
+                                    <tr >
+                                        <td rowspan="2" style="width: 40px; border: 1px solid #000; text-align: center; font-size: 10px; vertical-align: top; padding: 10px 5px; background-color: #e6f2ff;"></td>
+                                        <td style="width: 120px; border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 0;">
+                                            <strong>Rédacteur AB Serve</strong>
+                                        </td>
+                                        <td style="border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 5px;">
+                                            <strong>Validation AB Serve<br>(Resp. Site / Resp. Régional)</strong>
+                                        </td>
+                                        <td style="border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 5px;">
+                                            <strong>Validation CLIENT</strong>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                         <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top;  height: 150px;">
+                                            <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ creator_name|default:'&nbsp;' }}</div>
+                                            <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> {{ creator_role|default:'&nbsp;' }}</div>
+                                            <div style="margin-bottom: 5px;"><strong>DATE :</strong> {{ gamme_creation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>
+                                            <div><strong>VISA :</strong> Électronique</div>
+                                        </td>
+                                        <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top;  height: 150px;">
+                                            {% if validation_date %}
+                                            <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ validator_name|default:'&nbsp;' }}</div> 
+                                            <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> {{ validator_role|default:'&nbsp;' }}</div>         
+                                            <div style="margin-bottom: 5px;"><strong>DATE :</strong> {{ validation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>    
+                                            <div><strong>VISA :</strong> Électronique</div>
+                                            {% else %}
+                                            &nbsp;
+                                            {% endif %}
+                                        </td>
+                                        <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top; height: 188px;">
+                                            <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ mission.client|default:'&nbsp;' }}</div> 
+                                            <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> Qualité</div>  
+                                            <div style="margin-bottom: 5px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div> 
+                                            <div><strong>VISA :</strong> Électronique</div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                            <td style="width: 50%; padding: 0; margin: 0; border: 1px solid #000; border-top: none; vertical-align: top;">
+                                <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; table-layout: fixed;">
+                                    <tr>
+                                        {% if epis %}
+                                            {% for epi in epis|slice:":4" %}
+                                            <td style="border: 1px solid #000; text-align: center; padding: 5px; vertical-align: middle; height: 120px;">
+                                                <div style="height: 80px; display: flex; align-items: center; justify-content: center;">
+                                                    {% if epi.photo %}
+                                                        <img src="{{ epi.photo.url }}" alt="{{ epi.nom }}" style="max-width: 80px; max-height: 80px; display: block; margin: 0 auto;">
+                                                    {% else %}
+                                                        <div style="height: 60px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border: 1px dashed #ccc; font-size: 9px; width: 80px;">
+                                                            Pas de photo
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </tr>
+                                    <tr>
+                                        {% if epis %}
+                                            {% for epi in epis %}
+                                            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px; vertical-align: middle; ">
+                                                {{ epi.nom|default:'&nbsp;' }}
+                                            </td>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </tr>
+                                    <tr>
+                                        {% if epis %}
+                                            {% for epi in epis %}
+                                            <td style="border: 1px solid #000; text-align: center; vertical-align: middle; font-size: 16px;  padding: 10px 0; height: 100px;">X</td>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="width: 10%; border-left: 1px solid #000; vertical-align: top; padding: 0;">
+                    <table style="width: 100%; height: 100%; border-collapse: collapse;">
+                        <tr style="height: 40px; background-color: #e6f2ff;">
+                            <th style="border: 1px solid #000; text-align: center; font-size: 10px;">Identification, marquage, traçabilité</th>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #000; height: 80px; vertical-align: top; font-size: 11px; text-align: center;">
+                                &nbsp;<strong>{{gammecontrole.commantaire_identification}}</strong>
+
+                            </td>
+                        </tr>
+                        <tr style="height: 30px; background-color: #e6f2ff;">
+                            <th style="border: 1px solid #000; text-align: center; font-size: 23px; font-weight: bold; margin: 0; line-height: 30px;">En cas de détection de non conformité</th>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #000; height: 80px; vertical-align: top; font-size: 16px; text-align: center;">
+                                &nbsp;<strong style="font-size: 18px; color: red; font-weight: bold;">{{ gammecontrole.commantaire_traitement_non_conforme }}</strong>
+                                {% if gammecontrole.photo_traitement_non_conforme and '%7B' not in gammecontrole.photo_traitement_non_conforme.url and '{' not in gammecontrole.photo_traitement_non_conforme.url %}
+                                <div style="margin-top: 10px; text-align: center;">
+                                    <img src="{{ gammecontrole.photo_traitement_non_conforme.url }}" alt="Photo de non-conformité" style="max-width: 100%; max-height: 200px; object-fit: contain;">
+                                </div>
+                            {% endif %}
+                       
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="border: 1px solid #000; text-align: center; font-size: 10px; background-color: #e6f2ff; height: 30px;">
+                                Légende des pictogrammes
+                            </th>
+                        </tr>
+                        {% if unique_moyens %}
+                        <table style="width: 100%; border-collapse: collapse;">
+                            {% for moyen in unique_moyens %}
+                            <tr>
+                                <td style="width: 40%; border: 1px solid #000; text-align: center; vertical-align: middle; height: 25px; ">
+                                    {% if moyen.photo %}
+                                        <div style="width: 35px; height: 35px; margin: 0 auto; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                            <img src="{{ moyen.photo.url }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="{{ moyen.nom|default:'Moyen de contrôle' }}">
+                                        </div>
+                                    {% else %}
+                                        <span>Pas de photo</span>
+                                    {% endif %}
+                                </td>
+                                <td style="width: 60%; border: 1px solid #000; font-size: 10px;  vertical-align: middle; height: 80px;">
+                                  <strong>  {{ moyen.nom|default:"Moyen sans nom" }}</strong>
                                 </td>
                             </tr>
-                            <tr>
-                                <th style="border: 1px solid #000; text-align: center; font-size: 10px; background-color: #e6f2ff; height: 30px;">
-                                    Légende des pictogrammes
-                                </th>
-                            </tr>
-                            {% if unique_moyens %}
-                            <table style="width: 100%; border-collapse: collapse;">
-                                {% for moyen in unique_moyens %}
-                                <tr>
-                                    <td style="width: 40%; border: 1px solid #000; text-align: center; vertical-align: middle; height: 25px; ">
-                                        {% if moyen.photo %}
-                                            <div style="width: 35px; height: 35px; margin: 0 auto; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                                                <img src="{{ moyen.photo.url }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="{{ moyen.nom|default:'Moyen de contrôle' }}">
-                                            </div>
-                                        {% else %}
-                                            <span>Pas de photo</span>
-                                        {% endif %}
-                                    </td>
-                                    <td style="width: 60%; border: 1px solid #000; font-size: 10px;  vertical-align: middle; height: 80px;">
-                                      <strong>  {{ moyen.nom|default:"Moyen sans nom" }}</strong>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </table>
-                            {% else %}
-                                <tr>
-                                    <td colspan="2" style="border: 1px solid #000; text-align: center;  height: 80px;">
-                                        Aucun moyen de contrôle défini
-                                    </td>
-                                </tr>
-                            {% endif %}
-                            
+                            {% endfor %}
                         </table>
+                        {% else %}
+                            <tr>
+                                <td colspan="2" style="border: 1px solid #000; text-align: center;  height: 80px;">
+                                    Aucun moyen de contrôle défini
+                                </td>
+                            </tr>
+                        {% endif %}
                         
-                    </td>
-                </tr>
-            </table>
+                    </table>
+                    
+                </td>
+            </tr>
+        </table>
+    {% endif %}
+{% endfor %}
             <div style="page-break-before: always; padding-top: 10px; margin: 0;">
                 <div style="background-color: #ff0000; color: white; text-align: center; padding: 10px 0; font-weight: bold; font-size: 16px; width: 100%;">
                     DÉFAUT NON ADMISSIBLE

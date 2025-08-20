@@ -374,7 +374,7 @@ function addGamme(initialValues = {}) {
       </div>
       
       <div class="col-12">
-        <label class="form-label">Commentaire identification</label>
+        <label class="form-label">Identification de carton et emballage</label>
         <textarea name="gamme_${gammeIndex}_commentaire_identification" class="form-control" rows="2">${values.commentaire_identification}</textarea>
         <div id="commentaireIdentificationRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
           Le commentaire identification de la gamme est obligatoire.
@@ -382,7 +382,7 @@ function addGamme(initialValues = {}) {
       </div>
       
       <div class="col-12">
-        <label class="form-label">Commentaire traitement non conforme</label>
+        <label class="form-label">Identification de non conforme</label>
         <textarea name="gamme_${gammeIndex}_commentaire_traitement_non_conforme" class="form-control" rows="2">${values.commentaire_traitement_non_conforme}</textarea>
         <div id="commentaireTraitementNonConformeRequiredError_${gammeIndex}" class="invalid-feedback" style="display: none;">
           Le commentaire traitement non conforme de la gamme est obligatoire.

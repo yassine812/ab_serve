@@ -340,11 +340,11 @@
                           <input type="number" name="{{ gamme.id }}-temps_alloue" class="form-control" value="{{ gamme.Temps_alloué|default:'' }}">
                         </div>
                         <div class="mb-3">
-                          <label class="form-label">Commentaire d'identification</label>
+                          <label class="form-label">Identification de carton et  emballage</label>
                           <textarea name="{{ gamme.id }}-commentaire_identification" class="form-control">{{ gamme.commantaire_identification|default:'' }}</textarea>
                         </div>
                         <div class="mb-3">
-                          <label class="form-label">Commentaire traitement non conforme</label>
+                          <label class="form-label">Identification de non conforme</label>
                           <textarea name="{{ gamme.id }}-commentaire_non_conforme" class="form-control">{{ gamme.commantaire_traitement_non_conforme|default:'' }}</textarea>
                         </div>
                         <div class="mb-3">
@@ -806,7 +806,7 @@
               </select>
             </div>
             <div class="mb-3">
-              <label class="form-label">Commantaire</label>
+              <label class="form-label">Commentaire</label>
               <textarea class="form-control" name="gamme_commantaire"></textarea>
             </div>
             <div class="mb-3">
@@ -814,11 +814,11 @@
               <input type="number" class="form-control" name="gamme_Temps_alloue">
             </div>
             <div class="mb-3">
-              <label class="form-label">Commantaire identification</label>
+              <label class="form-label">Identification de carton et emballage</label>
               <textarea class="form-control" name="gamme_commantaire_identification"></textarea>
             </div>
             <div class="mb-3">
-              <label class="form-label">Commantaire traitement non conforme</label>
+              <label class="form-label">Identification de non conforme</label>
               <textarea class="form-control" name="gamme_commantaire_traitement_non_conforme"></textarea>
             </div>
             <div class="mb-3">
@@ -1585,7 +1585,7 @@
             <input type="text" name="form-${formIndex}-moyen_controle" class="form-control">
           </div>
           <div class="col-md-6 mb-3">
-            <label class="form-label">Fréquence (en jours)</label>
+            <label class="form-label">Fréquence </label>
             <input type="number" name="form-${formIndex}-frequence" class="form-control" value="1" min="1" required>
           </div>
         </div>
