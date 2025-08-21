@@ -83,6 +83,11 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
         # Add photos to each gamme object
         for gamme in gammes:
             gamme.photo_defauts = photos_by_gamme.get(gamme.id, [])
+
+        # Add selected moyen IDs for each operation
+        for gamme in gammes:
+            for op in gamme.operations.all():
+                op.selected_moyen_ids = list(op.moyenscontrole.values_list('id', flat=True))
         
         context = {
             'missioncontrole': missioncontrole,
@@ -168,25 +173,70 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     ordre = request.POST.get(f"{op.id}-ordre", op.ordre)
                     description = request.POST.get(f"{op.id}-description", op.description)
                     criteres = request.POST.get(f"{op.id}-criteres", op.criteres)
+                    frequence = request.POST.get(f"{op.id}-frequence", op.frequence)
+                    moyen_controle = request.POST.get(f"{op.id}-moyen_controle", op.moyen_controle or '')
 
+                    # Get selected moyenscontrole from checkboxes and remove duplicates
+                    moyen_ids = list(dict.fromkeys(request.POST.getlist(f'{op.id}-moyenscontrole', [])))
+                    current_moyen_ids = list(op.moyenscontrole.values_list('id', flat=True))
+                    
+                    # Convert to strings for comparison and remove empty strings
+                    current_moyen_ids_str = [str(id) for id in current_moyen_ids if id is not None]
+                    moyen_ids = [mid for mid in moyen_ids if mid]  # Remove empty strings
+                    
+                    # Debug output
+                    print(f"Operation {op.id} - Current moyens: {current_moyen_ids_str}")
+                    print(f"Operation {op.id} - Submitted moyens (deduplicated): {moyen_ids}")
+                    
                     # Check for actual operation changes
                     op_changed = any([
                         titre != op.titre,
                         str(ordre) != str(op.ordre),
                         description != op.description,
-                        criteres != op.criteres
+                        criteres != op.criteres,
+                        str(frequence) != str(op.frequence or ''),
+                        moyen_controle != (op.moyen_controle or ''),
+                        set(moyen_ids) != set(current_moyen_ids_str)
                     ])
                     
                     if op_changed:
                         gamme_change_detected = True
                         changement_detecte = True
-                        # Update the operation in place if no new gamme is being created
-                        if not gamme_change_detected:
-                            op.titre = titre
-                            op.ordre = ordre
-                            op.description = description
-                            op.criteres = criteres
-                            op.save()
+                        
+                        # Update the operation fields
+                        op.titre = titre
+                        op.ordre = ordre
+                        op.description = description
+                        op.criteres = criteres
+                        op.frequence = frequence
+                        op.moyen_controle = moyen_controle  # Update the CharField
+                        
+                        # Save the operation first
+                        op.save()
+                        
+                        # Update the many-to-many relationship for moyenscontrole
+                        try:
+                            # Convert string IDs to integers and remove duplicates
+                            moyen_ids_int = list({int(mid) for mid in moyen_ids if mid and mid.isdigit()})
+                            
+                            # Get current IDs as integers for comparison
+                            current_ids_set = set(current_moyen_ids)
+                            new_ids_set = set(moyen_ids_int)
+                            
+                            if current_ids_set != new_ids_set:
+                                op.moyenscontrole.set(moyen_ids_int)
+                                print(f"Updated operation {op.id} with moyenscontrole: {moyen_ids_int}")
+                            else:
+                                print(f"Operation {op.id} - No change in moyenscontrole")
+                        except Exception as e:
+                            print(f"Error updating moyenscontrole for operation {op.id}: {str(e)}")
+                            # Fallback to clear and add all if there's an error
+                            op.moyenscontrole.clear()
+                            for mid in moyen_ids_int:
+                                try:
+                                    op.moyenscontrole.add(int(mid))
+                                except (ValueError, moyens_controle.DoesNotExist):
+                                    continue
 
                     # Process existing photos
                     for photo in op.photooperation_set.all():
@@ -356,6 +406,10 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                         moyen_controle_value = request.POST.get(f"{op.id}-moyen_controle", '')
                         if not moyen_controle_value and hasattr(op, 'moyen_controle'):
                             moyen_controle_value = op.moyen_controle
+
+                        # Get the updated moyen_ids from the request
+                        moyen_ids = list(dict.fromkeys(request.POST.getlist(f'{op.id}-moyenscontrole', [])))
+                        moyen_ids_int = [int(mid) for mid in moyen_ids if mid and mid.isdigit()]
                         
                         # Only add the operation if it belongs to the current gamme version
                         if op.gamme_id == gamme.id:
@@ -366,8 +420,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                                 'description': new_description or '',
                                 'criteres': new_criteres or '',
                                 'frequence': request.POST.get(f"{op.id}-frequence", getattr(op, 'frequence', 1)),
-                                'moyens_id': request.POST.get(f"{op.id}-moyens"),
-                                'moyenscontrole': op.moyenscontrole.all(),
+                                'moyenscontrole_ids': moyen_ids_int,
                                 'moyen_controle': moyen_controle_value
                             })
                 else:
@@ -432,14 +485,6 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                     while OperationControle.objects.filter(gamme=new_gamme, ordre=current_order).exists():
                         current_order += 1
                     
-                    # Get moyen de contrôle if selected
-                    moyen = None
-                    if op_data['moyens_id']:
-                        try:
-                            moyen = moyens_controle.objects.get(id=op_data['moyens_id'])
-                        except (moyens_controle.DoesNotExist, ValueError):
-                            pass
-                    
                     # Create the new operation with all fields except many-to-many
                     new_op = OperationControle.objects.create(
                         gamme=new_gamme,
@@ -452,9 +497,10 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
                         created_by=request.user
                     )
                     
-                    # Set moyen de contrôle if selected using set() for many-to-many
-                    if moyen:
-                        new_op.moyenscontrole.set([moyen])
+                    # Set moyens de contrôle
+                    if op_data['moyenscontrole_ids']:
+                        new_op.moyenscontrole.set(op_data['moyenscontrole_ids'])
+
                     current_order += 1
                     
                     # Get the original operation for copying photos
@@ -2387,7 +2433,8 @@ def view_gamme_pdf(request, mission_id):
             'photos': op.photooperation_set.all(),
             'moyenscontrole': op_moyens,
             'frequence': op.frequence,
-            'moyen_controle': op.moyen_controle
+            'moyen_controle': op.moyen_controle,
+            'criteres': op.criteres  # Add the criteres field
         }
     
     # Get the RS user (Responsable de Service)

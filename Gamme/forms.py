@@ -40,9 +40,16 @@ class GammeControleForm(forms.ModelForm):
 # ----------- FORMULAIRE : OperationControle -----------
 
 class OperationControleForm(forms.ModelForm):
+    moyenscontrole = forms.ModelMultipleChoiceField(
+        queryset=moyens_controle.objects.all().order_by('ordre'),
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        required=False,
+        label='Moyens de contrôle'  
+    )
+    
     class Meta:
         model = OperationControle
-        fields = ['titre', 'description', 'criteres', 'moyen_controle', 'frequence', 'ordre']
+        fields = ['titre', 'description', 'criteres', 'moyen_controle', 'moyenscontrole', 'frequence', 'ordre']
         widgets = {
             'titre': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
@@ -241,7 +248,7 @@ UpdateOperationFormSet = inlineformset_factory(
     form=OperationControleForm,
     extra=1,
     can_delete=True,
-    fields=['titre', 'description', 'criteres', 'moyen_controle', 'frequence', 'ordre']
+    fields=['titre', 'description', 'criteres', 'moyen_controle', 'frequence', 'ordre', 'moyenscontrole']
 )
 
 # PhotoOperation inline formset for OperationControle

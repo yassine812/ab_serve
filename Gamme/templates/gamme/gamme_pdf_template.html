@@ -177,7 +177,7 @@
                 </tr>
             </table>
             {% for op in operations.items %}
-    {% if forloop.first or forloop.counter0|divisibleby:3 %}
+    {% if forloop.first or forloop.counter0|divisibleby:4 %}
         {% if not forloop.first %}
             <div style="page-break-before: always;"></div>
         {% endif %}
@@ -192,19 +192,40 @@
                             <th style="width: 50%; vertical-align: middle; text-align: center; padding: 1px; border: 1px solid #000; white-space: normal;font-size: 10px;">SCHEMAS, PHOTOS, DESCRIPTION</th>
                         </tr>
     {% endif %}
-                        {% if op.1.description or op.1.photos %}
+                        {% if op.1.description or op.1.photos or op.1.criteres %}
                         <tr style="min-height: 70px; line-height: 1.2;">
                             <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: 1px solid #000; font-size: 9px; width: 8%;">{{ forloop.counter }}</td>
                             <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 32%; word-break: break-word;">{{ op.1.description|default:''|linebreaksbr }}</td>
-                            <td style="padding: 8px 5px; vertical-align: middle; border: 1px solid #000; font-size: 11px; width: 10%;">
-                                {% if op.1.frequence or op.1.moyen_controle %}
-                                    <div style="margin-bottom: 8px;"><strong>Fréquence :</strong> {{ op.1.frequence|default:'' }}</div>
-                                    <div><strong>Mc :</strong> {{ op.1.moyen_controle|default:'' }}</div>
-                                    <div><strong>Critères :</strong> {{ op.1.criteres|default:'' }}</div>
-                                    
-                                {% else %}
-                                    &nbsp;
+                            <td style="vertical-align: middle; border: 1px solid #000; font-size: 13px; width: 10%;">
+                                {% if op.1.frequence or op.1.moyen_controle or op.1.criteres %}
+                                {% if op.1.frequence %}<div style="margin-bottom: 8px;"><strong>Fréquence :</strong> {{ op.1.frequence|default:'' }}</div>{% endif %}
+                                {% if op.1.moyen_controle %}<div style="margin-bottom: 8px;"><strong>Mc :</strong> {{ op.1.moyen_controle|default:'' }}</div>{% endif %}
+                                {% if op.1.criteres %}
+                                <div style="margin-bottom: 8px; display: flex; align-items: flex-start;">
+                                    <strong style="white-space: nowrap;">Critères :</strong>
+                                    <span style="white-space: pre-line; margin-left: 5px;">{{ op.1.criteres|default:'' }}</span>
+                                </div>
                                 {% endif %}
+                                
+                                {% if op.1.moyenscontrole %}
+                                <div style="margin-top: 10px;">
+                                    <div style="display: flex; flex-wrap: nowrap; gap: 10px; overflow-x: auto; ">
+                                        {% for moyen in op.1.moyenscontrole %}
+                                            {% if moyen.photo %}
+                                            <div style="flex: 0 0 auto; text-align: center;">
+                                                <div style="width: 50px; height: 50px; background: #f5f5f5; margin: 0 auto;">
+                                                    <img src="{{ moyen.photo.url }}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                            {% else %}
+                                &nbsp;
+                            {% endif %}
                             </td>
                             <td style="padding: 5px; border: 1px solid #000; width: 50%;" class="photo-cell">
                             {% if op.1.photos %}
@@ -223,7 +244,7 @@
                             </td>
                         </tr>
                         {% endif %}
-    {% if forloop.counter|divisibleby:3 or forloop.last %}
+    {% if forloop.counter|divisibleby:4 or forloop.last %}
                         <tr>
                             <td colspan="3" style="border: 1px solid #000; padding: 0; margin: 0; vertical-align: top;">
                                 <table style="border-collapse: collapse; width: 100%; margin: 0; table-layout: fixed;">
@@ -233,39 +254,39 @@
                                             Le point 8 peut-être utilisé ponctuellement pour optimiser la répartition des contrôles.
                                         </td>
                                     </tr>
-                                    <tr >
-                                        <td rowspan="2" style="width: 40px; border: 1px solid #000; text-align: center; font-size: 10px; vertical-align: top; padding: 10px 5px; background-color: #e6f2ff;"></td>
-                                        <td style="width: 120px; border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 0;">
+                                    <tr>
+                                        <td rowspan="2" style="width: 30px; border: 1px solid #000; text-align: center; font-size: 9px; vertical-align: top; padding: 3px; background-color: #e6f2ff;"></td>
+                                        <td style="width: 100px; border: 1px solid #000; text-align: center; font-size: 9px; line-height: 1; background-color: #e6f2ff; padding: 3px 0;">
                                             <strong>Rédacteur AB Serve</strong>
                                         </td>
-                                        <td style="border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 5px;">
+                                        <td style="border: 1px solid #000; text-align: center; font-size: 9px; line-height: 1; background-color: #e6f2ff; padding: 3px 0;">
                                             <strong>Validation AB Serve<br>(Resp. Site / Resp. Régional)</strong>
                                         </td>
-                                        <td style="border: 1px solid #000; text-align: center; font-size: 10px; line-height: 1.2; background-color: #e6f2ff; padding: 8px 5px;">
+                                        <td style="border: 1px solid #000; text-align: center; font-size: 9px; line-height: 1; background-color: #e6f2ff; padding: 3px 2px;">
                                             <strong>Validation CLIENT</strong>
                                         </td>
                                     </tr>
                                     <tr>
-                                         <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top;  height: 150px;">
-                                            <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ creator_name|default:'&nbsp;' }}</div>
-                                            <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> {{ creator_role|default:'&nbsp;' }}</div>
-                                            <div style="margin-bottom: 5px;"><strong>DATE :</strong> {{ gamme_creation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>
+                                         <td style="border: 1px solid #000; font-size: 9px; text-align: left; vertical-align: top; height: 80px; padding: 2px 4px;">
+                                            <div style="margin-bottom: 3px;"><strong>NOM :</strong> {{ creator_name|default:'&nbsp;' }}</div>
+                                            <div style="margin-bottom: 3px;"><strong>FONCTION :</strong> {{ creator_role|default:'&nbsp;' }}</div>
+                                            <div style="margin-bottom: 3px;"><strong>DATE :</strong> {{ gamme_creation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>
                                             <div><strong>VISA :</strong> Électronique</div>
                                         </td>
-                                        <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top;  height: 150px;">
+                                        <td style="border: 1px solid #000; font-size: 9px; text-align: left; vertical-align: top; height: 80px; padding: 2px 4px;">
                                             {% if validation_date %}
-                                            <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ validator_name|default:'&nbsp;' }}</div> 
-                                            <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> {{ validator_role|default:'&nbsp;' }}</div>         
-                                            <div style="margin-bottom: 5px;"><strong>DATE :</strong> {{ validation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>    
-                                            <div><strong>VISA :</strong> Électronique</div>
+                                            <div style="margin-bottom: 2px;"><strong>NOM :</strong> {{ validator_name|default:'&nbsp;' }}</div>
+                                            <div style="margin-bottom: 2px;"><strong>FONCTION :</strong> {{ validator_role|default:'&nbsp;' }}</div>
+                                            <div style="margin-bottom: 2px;"><strong>DATE :</strong> {{ validation_date|date:"d/m/Y"|default:'&nbsp;' }}</div>
+                                            <div style="margin: 0;"><strong>VISA :</strong> Électronique</div>
                                             {% else %}
                                             &nbsp;
                                             {% endif %}
                                         </td>
-                                        <td style="border: 1px solid #000; font-size: 10px; text-align: left; vertical-align: top; height: 188px;">
-                                            <div style="margin-bottom: 5px;"><strong>NOM :</strong> {{ mission.client|default:'&nbsp;' }}</div> 
-                                            <div style="margin-bottom: 5px;"><strong>FONCTION :</strong> Qualité</div>  
-                                            <div style="margin-bottom: 5px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div> 
+                                        <td style="border: 1px solid #000; font-size: 9px; text-align: left; vertical-align: top; height: 80px; padding: 2px 4px;">
+                                            <div style="margin-bottom: 3px;"><strong>NOM :</strong> {{ mission.client|default:'&nbsp;' }}</div> 
+                                            <div style="margin-bottom: 3px;"><strong>FONCTION :</strong> Qualité</div>  
+                                            <div style="margin-bottom: 3px;"><strong>DATE :</strong> {% now "d/m/Y" %}</div> 
                                             <div><strong>VISA :</strong> Électronique</div>
                                         </td>
                                     </tr>
@@ -276,12 +297,12 @@
                                 <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; table-layout: fixed;">
                                     <tr>
                                         {% for epi in epis|slice:":4" %}
-                                        <td style="border: 1px solid #000; text-align: center; padding: 5px; vertical-align: middle; height: 120px;">
-                                            <div style="height: 80px; display: flex; align-items: center; justify-content: center;">
+                                        <td style="border: 1px solid #000; text-align: center; padding: 3px; vertical-align: middle; height: 80px;">
+                                            <div style="height: 50px; display: flex; align-items: center; justify-content: center;">
                                                 {% if epi.photo %}
-                                                    <img src="{{ epi.photo.url }}" alt="{{ epi.nom }}" style="max-width: 80px; max-height: 80px; display: block; margin: 0 auto;">
+                                                    <img src="{{ epi.photo.url }}" alt="{{ epi.nom }}" style="max-width: 60px; max-height: 50px; display: block; margin: 0 auto;">
                                                 {% else %}
-                                                    <div style="height: 60px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border: 1px dashed #ccc; font-size: 9px; width: 80px;">
+                                                    <div style="height: 40px; display: flex; align-items: center; justify-content: center; background-color: #f5f5f5; border: 1px dashed #ccc; font-size: 8px; width: 60px;">
                                                         Pas de photo
                                                     </div>
                                                 {% endif %}
@@ -291,14 +312,14 @@
                                     </tr>
                                     <tr>
                                         {% for epi in epis %}
-                                        <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px; vertical-align: middle; ">
+                                        <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 9px; vertical-align: middle; line-height: 1.1; height: 25px;">
                                             {{ epi.nom|default:'&nbsp;' }}
                                         </td>
                                         {% endfor %}
                                     </tr>
                                     <tr>
                                         {% for epi in epis %}
-                                        <td style="border: 1px solid #000; text-align: center; vertical-align: middle; font-size: 16px;  padding: 10px 0; height: 100px;">X</td>
+                                        <td style="border: 1px solid #000; text-align: center; vertical-align: middle; font-size: 12px; padding: 5px 0; height: 50px;">X</td>
                                         {% endfor %}
                                     </tr>
                                 </table>
@@ -322,10 +343,10 @@
                             <th style="border: 1px solid #000; text-align: center; font-size: 23px; font-weight: bold; margin: 0; line-height: 30px;">En cas de détection de non conformité</th>
                         </tr>
                         <tr>
-                            <td style="border: 1px solid #000; height: 80px; vertical-align: top; font-size: 16px; text-align: center;">
-                                &nbsp;<strong style="font-size: 18px; color: red; font-weight: bold;">{{ gammecontrole.commantaire_traitement_non_conforme }}</strong>
+                            <td style="border: 1px solid #000; height: 175px; vertical-align: top; font-size: 16px; ">
+                                &nbsp;<strong style="font-size: 15px; color: red; font-weight: bold;">{{ gammecontrole.commantaire_traitement_non_conforme }}</strong>
                                 {% if gammecontrole.photo_traitement_non_conforme and '%7B' not in gammecontrole.photo_traitement_non_conforme.url and '{' not in gammecontrole.photo_traitement_non_conforme.url %}
-                                <div style="margin-top: 10px; text-align: center;">
+                                <div style=" text-align: center;">
                                     <img src="{{ gammecontrole.photo_traitement_non_conforme.url }}" alt="Photo de non-conformité" style="max-width: 100%; max-height: 200px; object-fit: contain;">
                                 </div>
                             {% endif %}
@@ -341,16 +362,16 @@
                         <table style="width: 100%; border-collapse: collapse;">
                             {% for moyen in unique_moyens %}
                             <tr>
-                                <td style="width: 40%; border: 1px solid #000; text-align: center; vertical-align: middle; height: 25px; ">
+                                <td style="width: 40%; border: 1px solid #000; text-align: center; vertical-align: middle; height: 15px; ">
                                     {% if moyen.photo %}
-                                        <div style="width: 35px; height: 35px; margin: 0 auto; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                        <div style="width: 35px; height: 25px; margin: 0 auto; overflow: hidden; display: flex; align-items: center; justify-content: center;">
                                             <img src="{{ moyen.photo.url }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="{{ moyen.nom|default:'Moyen de contrôle' }}">
                                         </div>
                                     {% else %}
                                         <span>Pas de photo</span>
                                     {% endif %}
                                 </td>
-                                <td style="width: 60%; border: 1px solid #000; font-size: 10px;  vertical-align: middle; height: 80px;">
+                                <td style="width: 60%; border: 1px solid #000; font-size: 10px;  vertical-align: middle; height: 60px;">
                                   <strong>  {{ moyen.nom|default:"Moyen sans nom" }}</strong>
                                 </td>
                             </tr>
@@ -383,7 +404,7 @@
                     <table style="width:100%;border-collapse:collapse">
                         {% if photo_defauts %}
                             {% for photo in photo_defauts %}
-                                {% if forloop.counter0|divisibleby:3 %}
+                                {% if forloop.counter0|divisibleby:4 %}
                                     {% if not forloop.first %}</tr>{% endif %}
                                     <tr>
                                 {% endif %}
@@ -401,9 +422,9 @@
                                         </div>
                                     </div>
                                 </td>
-                                {% if forloop.counter|divisibleby:3 or forloop.last %}
+                                {% if forloop.counter|divisibleby:4 or forloop.last %}
                                     </tr>
-                                    {% if not forloop.last and not forloop.counter|divisibleby:3 %}
+                                    {% if not forloop.last and not forloop.counter|divisibleby:4 %}
                                         <tr><td colspan="3" style="padding:10px;"></td></tr>
                                     {% endif %}
                                 {% endif %}

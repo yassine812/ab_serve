@@ -479,7 +479,6 @@
                             <th style="width: 5%;">Ordre</th>
                             <th style="width: 15%;">Description</th>
                             <th style="width: 15%;">Critères</th>
-                            <th style="width: 15%;">Les Moyens de contrôles</th>
                             <th style="width: 10%;">Fréquence</th>
                             <th style="width: 10%;">Moyen de contrôle </th>
                             <th style="width: 15%;">Moyens de Contrôle</th>
@@ -503,7 +502,6 @@
                               <td>
                                 <textarea class="form-control form-control-sm" rows="2" name="{{ op.id }}-criteres">{{ op.criteres }}</textarea>
                               </td>
-                              <td></td>
                               <td>
                                 <input type="text" class="form-control form-control-sm" name="{{ op.id }}-frequence" value="{{ op.frequence|default:'' }}">
                               </td>
@@ -511,19 +509,22 @@
                                 <input type="text" class="form-control form-control-sm" name="{{ op.id }}-moyen_controle" value="{{ op.moyen_controle|default:'' }}" placeholder="Entrez le moyen de contrôle">
                               </td>
                               <td>
-                                <div class="d-flex flex-wrap gap-1 justify-content-center">
-                                {% for moyen in gamme.moyens_controle.all %}
-                                  <div class="form-check form-check-inline" title="{{ moyen.nom }}">
-                                    <input class="form-check-input" type="checkbox" name="op_{{ op.id }}_moyens_controle" value="{{ moyen.id }}" id="op_{{ op.id }}_moyen_{{ moyen.id }}" {% if moyen in op.moyenscontrole.all %}checked{% endif %}>
-                                    <label class="form-check-label" for="op_{{ op.id }}_moyen_{{ moyen.id }}">
+                                <div class="moyens-controle-container">
+                                  {% for moyen in moyens_controle %}
+                                  <div class="form-check form-check-inline">
+                                    <input class="form-check-input moyen-checkbox" type="checkbox" 
+                                           name="{{ op.id }}-moyenscontrole" 
+                                           value="{{ moyen.id }}"
+                                           id="op{{ op.id }}_moyen{{ moyen.id }}"
+                                           {% for mc in op.moyenscontrole.all %}{% if mc.id == moyen.id %}checked{% endif %}{% endfor %}>
+                                    <label class="form-check-label" for="op{{ op.id }}_moyen{{ moyen.id }}" title="{{ moyen.nom }}">
                                       {% if moyen.photo %}
-                                        <img src="{{ moyen.photo.url }}" alt="{{ moyen.nom }}" class="img-fluid rounded" style="max-height: 30px; width: auto;">
-                                      {% else %}
-                                        <i class="bi bi-card-checklist"></i>
+                                        <img src="{{ moyen.photo.url }}" alt="{{ moyen.nom }}" style="max-height: 50px; max-width: 100%;">
+                                      
                                       {% endif %}
                                     </label>
                                   </div>
-                                {% endfor %}
+                                  {% endfor %}
                                 </div>
                               </td>
                               <td>
