@@ -442,5 +442,51 @@
                 </div>
             </div>
             <div style="page-break-before: always; padding-top: 10px; margin: 0;">
-                lllll
+                <div style="background-color: #28a745; color: white; text-align: center; padding: 10px 0; font-weight: bold; font-size: 16px; width: 100%;">
+                    LIMITES ACCEPTABLES
+                </div>
+                <div style="padding: 20px;">
+                    <div style="background-color: #f8f9fa; font-size: 11px; border: 1px solid #ddd;">
+                        <strong>Photos des Limites Acceptables</strong><br>
+                        Nombre de photos: {{ photo_acceptables|length }}
+                    </div>
+                    <table style="width:100%;border-collapse:collapse">
+                        {% if photo_acceptables %}
+                            {% for photo in photo_acceptables %}
+                                {% if forloop.counter0|divisibleby:4 %}
+                                    {% if not forloop.first %}</tr>{% endif %}
+                                    <tr>
+                                {% endif %}
+                                <td style="border:1px solid #ddd;padding:5px;vertical-align:top;width:33.33%;">
+                                    <div style="text-align:center;">
+                                        <img src="{{ photo.image.url|default:'' }}"
+                                             alt="{% if photo.description %}{{ photo.description }}{% else %}Photo de limite acceptable {{ forloop.counter }}{% endif %}"
+                                             style="max-width:100%;max-height:60px;display:block;margin:0 auto 2px;object-fit:contain;">
+                                        <div style="font-weight:bold;word-wrap:break-word;min-height:20px;font-size:8px;padding:0 2px;">
+                                            {% if photo.description %}
+                                                {{ photo.description }}
+                                            {% else %}
+                                                Limite acceptable - {{ photo.date_ajout|date:"d/m/Y H:i" }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                {% if forloop.counter|divisibleby:4 or forloop.last %}
+                                    </tr>
+                                    {% if not forloop.last and not forloop.counter|divisibleby:4 %}
+                                        <tr><td colspan="3" style="padding:10px;"></td></tr>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" style="text-align:center; font-size: 11px;">
+                                    <div style="color:#666;font-style:italic;">
+                                        Aucune photo de limite acceptable n'a été ajoutée pour cette gamme.
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </table>
+                </div>
             </div>

@@ -2468,6 +2468,7 @@ def view_gamme_pdf(request, mission_id):
     
     # Get PhotoDefaut objects for this gamme using the correct related_name
     photo_defauts = []
+    photo_acceptables = []
     if gamme:
         try:
             # Debug: Check if the gamme has the defaut_photos attribute
@@ -2475,13 +2476,37 @@ def view_gamme_pdf(request, mission_id):
             print(f"Gamme ID: {gamme.id}, Title: {gamme.intitule}")
             print(f"Has defaut_photos attribute: {hasattr(gamme, 'defaut_photos')}")
             
-            # Get the photos
+            # Get the defect photos
             photo_defauts = gamme.defaut_photos.all().order_by('date_ajout')
             print(f"Found {photo_defauts.count()} defect photos for gamme {gamme.id}")
             
-            # Debug each photo
+            # Get the acceptable limit photos
+            photo_acceptables = gamme.limiteacceptable_photos.all().order_by('date_ajout')
+            print(f"Found {photo_acceptables.count()} acceptable limit photos for gamme {gamme.id}")
+            
+            # Debug each defect photo
             for i, photo in enumerate(photo_defauts, 1):
-                print(f"\nPhoto {i}:")
+                print(f"\nDefect Photo {i}:")
+                print(f"  ID: {photo.id}")
+                print(f"  Description: {photo.description}")
+                print(f"  Image path: {photo.image.path if photo.image else 'No image'}")
+                print(f"  Image URL: {photo.image.url if photo.image else 'No URL'}")
+                print(f"  Date: {photo.date_ajout}")
+                
+                # Check if file exists
+                if photo and photo.image:
+                    try:
+                        file_exists = os.path.exists(photo.image.path)
+                        print(f"  File exists: {file_exists}")
+                        if not file_exists:
+                            print(f"  WARNING: File does not exist at {photo.image.path}")
+                    except Exception as e:
+                        print(f"  Error checking file existence: {str(e)}")
+                        file_exists = False
+                        
+            # Debug each acceptable limit photo
+            for i, photo in enumerate(photo_acceptables, 1):
+                print(f"\nAcceptable Limit Photo {i}:")
                 print(f"  ID: {photo.id}")
                 print(f"  Description: {photo.description}")
                 print(f"  Image path: {photo.image.path if photo.image else 'No image'}")
@@ -2499,7 +2524,7 @@ def view_gamme_pdf(request, mission_id):
                         print(f"  Error checking file existence: {str(e)}")
                         file_exists = False
         except Exception as e:
-            print(f"Error getting defect photos: {str(e)}")
+            print(f"Error getting photos: {str(e)}")
             import traceback
             traceback.print_exc()
     
@@ -2529,6 +2554,7 @@ def view_gamme_pdf(request, mission_id):
         'rs_user': rs_user,
         'ro_user': ro_user,
         'photo_defauts': photo_defauts,
+        'photo_acceptables': photo_acceptables,  # Add acceptable limit photos to the context
         'temps_alloue': temps_alloue,
         'static_defect_photos': [
             {'image_path': '1.jpg', 'title': 'Défaut de surface'},
@@ -2757,13 +2783,13 @@ def delete_photo_defaut(request, photo_id):
         photo = get_object_or_404(PhotoDefaut, id=photo_id)
         gamme_id = photo.gamme.id
         
-        # Only allow deletion by admins, responsables, or the user who uploaded the photo
-        if not (request.user.role in ['admin', 'responsable', 'ro'] or photo.uploaded_by == request.user):
+        # Only allow deletion by admins, responsables, or the user who created the photo
+        if not (request.user.is_admin or request.user.is_rs or request.user.is_ro or photo.created_by == request.user):
             return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
         
         # Delete the file from storage
-        if photo.photo:
-            photo.photo.delete(save=False)
+        if photo.image:
+            photo.image.delete(save=False)
             
         # Delete the database record
         photo.delete()
@@ -2857,13 +2883,13 @@ def delete_photo_acceptable(request, photo_id):
         photo = get_object_or_404(Photolimiteacceptable, id=photo_id)
         gamme_id = photo.gamme.id
         
-        # Only allow deletion by admins, responsables, or the user who uploaded the photo
-        if not (request.user.role in ['admin', 'responsable', 'ro'] or photo.uploaded_by == request.user):
+        # Only allow deletion by admins, responsables, or the user who created the photo
+        if not (request.user.is_admin or request.user.is_rs or request.user.is_ro or photo.created_by == request.user):
             return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
         
         # Delete the file from storage
-        if photo.photo:
-            photo.photo.delete(save=False)
+        if photo.image:
+            photo.image.delete(save=False)
             
         # Delete the database record
         photo.delete()
