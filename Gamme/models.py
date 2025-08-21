@@ -120,7 +120,34 @@ class PhotoDefaut(models.Model):
             storage.delete(path)
         else:
             super().delete(*args, **kwargs)
+class Photolimiteacceptable(models.Model):
+    id = models.AutoField(primary_key=True)
+    gamme = models.ForeignKey(GammeControle, on_delete=models.CASCADE, related_name='limiteacceptable_photos')
+    image = models.ImageField(upload_to=photo_defaut_upload_to)
+    description = models.CharField(max_length=255, blank=True, default='')
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='limiteacceptable_created', null=True, blank=True)
 
+    class Meta:
+        ordering = ['-date_ajout']
+        verbose_name = 'Photo de limite acceptable'
+        verbose_name_plural = 'Photos de limite acceptable'
+
+    def __str__(self):
+        return self.description or f'Photo {self.id} pour {self.gamme.intitule}'
+    
+    def delete(self, *args, **kwargs):
+        """
+        Delete the file from storage when the model instance is deleted.
+        """
+        if self.image:
+            storage, path = self.image.storage, self.image.path
+            # Delete the model first
+            super().delete(*args, **kwargs)
+            # Then delete the file
+            storage.delete(path)
+        else:
+            super().delete(*args, **kwargs)
 
 # ----------- OPÉRATION CONTROLE -----------
 

@@ -6,6 +6,7 @@ from .views import (GammeControleCreateView, GammeControleDetailView, GammeContr
                     PhotoOperationCreateView, PhotoOperationListView, PhotoOperationUpdateView, PhotoOperationDeleteView,
                     UserListView, UserUpdateView, OperatorDashboardView, op_edit, UserDeleteView, DashboardView, ProfileView, 
                     login, logoutView, RegisterView, ajouter_utilisateur, save_mission_pdf, upload_photo_defaut, delete_photo_defaut,
+                    upload_photo_acceptable, delete_photo_acceptable,
                     MoyenControleListView, MoyenControleCreateView, MoyenControleUpdateView, MoyenControleDeleteView, check_mission_code,
                     validate_gamme, generate_and_save_gamme_pdf)
 app_name = 'Gamme'
@@ -57,6 +58,10 @@ urlpatterns = [
     # Photo defaut URLs
     path('gamme/photo-defaut/upload/', upload_photo_defaut, name='upload_photo_defaut'),
     path('gamme/photo-defaut/<int:photo_id>/delete/', delete_photo_defaut, name='delete_photo_defaut'),
+    
+    # Photo acceptable URLs
+    path('gamme/photo-acceptable/upload/', upload_photo_acceptable, name='upload_photo_acceptable'),
+    path('gamme/photo-acceptable/<int:photo_id>/delete/', delete_photo_acceptable, name='delete_photo_acceptable'),
     
     # EPI URLs
     path('gamme/epi/', EpiListView.as_view(), name='epi_list'),

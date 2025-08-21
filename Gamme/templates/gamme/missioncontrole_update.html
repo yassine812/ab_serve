@@ -255,8 +255,11 @@
                       Afficher les opérations
                     </a>
                     
-                    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#photoDefautModal{{ gamme.id }}">
+                    <button type="button" class="btn btn-sm btn-outline-info me-2" data-bs-toggle="modal" data-bs-target="#photoDefautModal{{ gamme.id }}">
                       <i class="bi bi-camera"></i> ajouter des images de defaut
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#photoAcceptableModal{{ gamme.id }}">
+                      <i class="bi bi-camera"></i> ajouter des images acceptables
                     </button>
                     {% if gamme.validations.exists %}
                       <button type="button" class="btn btn-sm btn-success" disabled>
@@ -1119,6 +1122,81 @@
 </div>
 {% endfor %}
 
+<!-- Modal for adding acceptable limit photos -->
+{% for gamme in gammes %}
+<div class="modal fade" id="photoAcceptableModal{{ gamme.id }}" tabindex="-1" aria-labelledby="photoAcceptableModalLabel{{ gamme.id }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title" id="photoAcceptableModalLabel{{ gamme.id }}">Ajouter des photos de limites acceptables - {{ gamme.intitule }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="photoAcceptableForm{{ gamme.id }}" enctype="multipart/form-data" data-gamme-id="{{ gamme.id }}">
+          {% csrf_token %}
+          <input type="hidden" name="gamme_id" value="{{ gamme.id }}">
+          
+          <div class="mb-3">
+            <label for="photos" class="form-label">Sélectionner des photos</label>
+            <input class="form-control" type="file" id="photos{{ gamme.id }}" name="photos" multiple accept="image/*" required>
+            <div class="form-text">Sélectionnez une ou plusieurs images à télécharger.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="description" class="form-label">Description (optionnelle)</label>
+            <input type="text" class="form-control" id="description{{ gamme.id }}" name="description" placeholder="Description des limites acceptables">
+          </div>
+          
+          <div class="d-flex justify-content-between align-items-center">
+            <div id="uploadAcceptableStatus{{ gamme.id }}" class="text-muted"></div>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-upload"></i> Télécharger
+            </button>
+          </div>
+        </form>
+        
+        <hr>
+        
+        <h6>Photos existantes</h6>
+        <div id="existingAcceptablePhotos{{ gamme.id }}" class="row g-2">
+          {% for photo in gamme.limiteacceptable_photos.all %}
+          <div class="col-md-3 col-6">
+            <div class="card h-100">
+              <div class="position-relative" style="height: 120px; overflow: hidden;">
+                <img src="{{ photo.image.url }}" class="card-img-top h-100 w-100" alt="{{ photo.description }}" style="object-fit: cover; cursor: pointer;" onclick="zoomPhoto(this)">
+                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" 
+                        onclick="event.stopPropagation(); deletePhotoAcceptable('{{ photo.id }}', this)" 
+                        title="Supprimer"
+                        data-photo-id="{{ photo.id }}">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+              <div class="card-body p-2">
+                <p class="card-text small text-muted mb-0">
+                  <i class="bi bi-calendar3 me-1"></i> {{ photo.date_ajout|date:"d/m/Y H:i" }}
+                </p>
+                {% if photo.description %}
+                <p class="card-text small mb-0 mt-1">{{ photo.description }}</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="col-12">
+            <div class="text-center p-4 border rounded bg-light">
+              <i class="bi bi-images fs-1 text-muted mb-2"></i>
+              <p class="text-muted mb-0">Aucune photo de limite acceptable pour l'instant.</p>
+              <p class="small text-muted mt-2">Utilisez le formulaire ci-dessus pour ajouter des photos.</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
 <!-- Zoom overlay -->
 <div class="zoom-overlay" id="photoZoom" role="dialog" aria-modal="true" aria-labelledby="zoomedImage">
   <button class="zoom-close-btn" aria-label="Close zoom" onclick="closeZoom()">×</button>
@@ -1769,7 +1847,7 @@
     overlay.style.display = 'none';
   }
 
-  // Handle photo upload form submission
+  // Handle defect photo upload form submission
   document.querySelectorAll('[id^=photoDefautForm]').forEach(form => {
     form.addEventListener('submit', function(e) {
       e.preventDefault();
@@ -1795,6 +1873,43 @@
         if (data.success) {
           statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Téléchargement réussi</span>';
           // Reload the page to show the new photos
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          statusEl.innerHTML = `<span class="text-danger">Erreur: ${data.error || 'Erreur inconnue'}</span>`;
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        statusEl.innerHTML = '<span class="text-danger">Erreur lors du téléchargement</span>';
+      });
+    });
+  });
+
+  // Handle acceptable photo upload form submission
+  document.querySelectorAll('[id^=photoAcceptableForm]').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const gammeId = formData.get('gamme_id');
+      const statusEl = document.getElementById(`uploadAcceptableStatus${gammeId}`);
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      
+      statusEl.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Chargement...</span></div> Téléchargement...';
+      
+      const uploadUrl = '{% url "Gamme:upload_photo_acceptable" %}';
+      fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken,
+        },
+        credentials: 'same-origin'
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Téléchargement réussi</span>';
           setTimeout(() => window.location.reload(), 1000);
         } else {
           statusEl.innerHTML = `<span class="text-danger">Erreur: ${data.error || 'Erreur inconnue'}</span>`;
@@ -1839,6 +1954,49 @@
     .catch(error => {
       console.error('Error:', error);
       alert('Erreur lors de la suppression');
+      card.style.opacity = '1';
+    });
+  };
+
+  // Delete acceptable photo
+  window.deletePhotoAcceptable = function(photoId, btn) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette photo de limite acceptable ?')) return;
+    
+    const card = btn.closest('.col-md-3');
+    card.style.opacity = '0.5';
+    
+    fetch(`/gamme/photo-acceptable/${photoId}/delete/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        card.remove();
+        // If no more photos, show empty state
+        const container = document.querySelector(`#existingAcceptablePhotos${data.gamme_id}`);
+        if (container && container.children.length === 0) {
+          container.innerHTML = `
+            <div class="col-12">
+              <div class="text-center p-4 border rounded bg-light">
+                <i class="bi bi-images fs-1 text-muted mb-2"></i>
+                <p class="text-muted mb-0">Aucune photo de limite acceptable pour l'instant.</p>
+                <p class="small text-muted mt-2">Utilisez le formulaire ci-dessus pour ajouter des photos.</p>
+              </div>
+            </div>`;
+        }
+      } else {
+        alert('Erreur lors de la suppression de la photo');
+        card.style.opacity = '1';
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Erreur lors de la suppression de la photo');
       card.style.opacity = '1';
     });
   };

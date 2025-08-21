@@ -16,7 +16,7 @@ from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.forms import inlineformset_factory
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from .models import MissionControle, GammeControle, OperationControle, PhotoOperation, PhotoDefaut, User, epi, moyens_controle
+from .models import MissionControle, GammeControle, OperationControle, PhotoOperation, PhotoDefaut, Photolimiteacceptable, User, epi, moyens_controle
 from .forms import MissionControleForm, GammeControleForm,ProfileUpdateForm, OperationControleForm,OperationControleFormSet, PhotoOperationForm, UpdateGammeFormSet, UpdateOperationFormSet, UpdatePhotoFormSet,RegisterForm, EpiForm, MoyenControleForm
 from django.contrib.auth import logout
 from django.views import View
@@ -73,16 +73,29 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
         # Get all defect photos for the mission's gammes
         photo_defauts = PhotoDefaut.objects.filter(gamme__in=gammes).order_by('-date_ajout')
         
+        # Get all acceptable limit photos for the mission's gammes
+        photo_acceptables = Photolimiteacceptable.objects.filter(gamme__in=gammes).order_by('-date_ajout')
+        
         # Group photos by gamme ID for easier access in template
         photos_by_gamme = {}
+        acceptable_photos_by_gamme = {}
+        
+        # Process defect photos
         for photo in photo_defauts:
             if photo.gamme_id not in photos_by_gamme:
                 photos_by_gamme[photo.gamme_id] = []
             photos_by_gamme[photo.gamme_id].append(photo)
+            
+        # Process acceptable photos
+        for photo in photo_acceptables:
+            if photo.gamme_id not in acceptable_photos_by_gamme:
+                acceptable_photos_by_gamme[photo.gamme_id] = []
+            acceptable_photos_by_gamme[photo.gamme_id].append(photo)
         
         # Add photos to each gamme object
         for gamme in gammes:
             gamme.photo_defauts = photos_by_gamme.get(gamme.id, [])
+            gamme.photo_acceptables = acceptable_photos_by_gamme.get(gamme.id, [])
 
         # Add selected moyen IDs for each operation
         for gamme in gammes:
@@ -96,6 +109,7 @@ class MissionControleUpdateView(LoginRequiredMixin,View):
             'moyens_controle': moyens_controle_list,
             'epis': all_epis,
             'photos_by_gamme': photos_by_gamme,  # For debugging/backward compatibility
+            'acceptable_photos_by_gamme': acceptable_photos_by_gamme,  # For debugging/backward compatibility
         }
         
         return render(request, self.template_name, context)
@@ -2743,9 +2757,13 @@ def delete_photo_defaut(request, photo_id):
         photo = get_object_or_404(PhotoDefaut, id=photo_id)
         gamme_id = photo.gamme.id
         
+        # Only allow deletion by admins, responsables, or the user who uploaded the photo
+        if not (request.user.role in ['admin', 'responsable', 'ro'] or photo.uploaded_by == request.user):
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+        
         # Delete the file from storage
-        if photo.image:
-            photo.image.delete(save=False)
+        if photo.photo:
+            photo.photo.delete(save=False)
             
         # Delete the database record
         photo.delete()
@@ -2758,6 +2776,106 @@ def delete_photo_defaut(request, photo_id):
         
     except Exception as e:
         logger.error(f'Error deleting defect photo: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(['POST'])
+@csrf_exempt
+def upload_photo_acceptable(request):
+    """
+    View to handle uploading acceptable limit photos for a gamme.
+    Expected POST data:
+    - gamme_id: ID of the gamme
+    - photos: One or more image files
+    - description: Optional description for the photos
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=403)
+    
+    try:
+        gamme_id = request.POST.get('gamme_id')
+        description = request.POST.get('description', '')
+        
+        if not gamme_id:
+            return JsonResponse({'success': False, 'error': 'gamme_id is required'}, status=400)
+            
+        gamme = get_object_or_404(GammeControle, id=gamme_id)
+        
+        # Check permissions - only allow admins, responsables, or the user who created the gamme
+        if not (request.user.is_admin or request.user.is_rs or request.user.is_ro or gamme.created_by == request.user):
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+        
+        # Handle file uploads
+        photos = request.FILES.getlist('photos')
+        if not photos:
+            return JsonResponse({'success': False, 'error': 'No photos provided'}, status=400)
+        
+        saved_photos = []
+        for photo in photos:
+            # Create a new Photolimiteacceptable instance
+            photo_instance = Photolimiteacceptable(
+                gamme=gamme,
+                description=description,
+                created_by=request.user
+            )
+            
+            # Save the file with a unique name
+            file_extension = os.path.splitext(photo.name)[1].lower()
+            filename = f'acceptable_{gamme.id}_{int(timezone.now().timestamp())}{file_extension}'
+            photo_instance.image.save(filename, photo, save=False)
+            photo_instance.save()
+            
+            saved_photos.append({
+                'id': photo_instance.id,
+                'url': photo_instance.image.url,
+                'description': photo_instance.description,
+                'uploaded_at': photo_instance.date_ajout.isoformat(),
+                'uploaded_by': request.user.get_full_name() or request.user.username
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully uploaded {len(saved_photos)} photo(s)',
+            'photos': saved_photos
+        })
+        
+    except Exception as e:
+        logger.error(f'Error uploading acceptable photos: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(['POST'])
+@csrf_exempt
+def delete_photo_acceptable(request, photo_id):
+    """
+    View to delete an acceptable limit photo.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=403)
+    
+    try:
+        photo = get_object_or_404(Photolimiteacceptable, id=photo_id)
+        gamme_id = photo.gamme.id
+        
+        # Only allow deletion by admins, responsables, or the user who uploaded the photo
+        if not (request.user.role in ['admin', 'responsable', 'ro'] or photo.uploaded_by == request.user):
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+        
+        # Delete the file from storage
+        if photo.photo:
+            photo.photo.delete(save=False)
+            
+        # Delete the database record
+        photo.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Photo deleted successfully',
+            'gamme_id': gamme_id
+        })
+        
+    except Exception as e:
+        logger.error(f'Error deleting acceptable photo: {str(e)}', exc_info=True)
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 class MoyenControleListView(LoginRequiredMixin, ListView):
