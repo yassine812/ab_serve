@@ -244,7 +244,50 @@
                             </td>
                         </tr>
                         {% endif %}
+                        
     {% if forloop.counter|divisibleby:4 or forloop.last %}
+        {% if forloop.last %}
+            {% if forloop.counter|add:"3"|divisibleby:4 %}
+                <tr style="min-height: 70px; line-height: 1.2;">
+                    <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: none; font-size: 9px; width: 8%;">&nbsp;</td>
+                    <td style="padding: 8px 5px; vertical-align: middle; border: none; font-size: 11px; width: 32%; word-break: break-word;">&nbsp;</td>
+                    <td style="vertical-align: middle; border: none; font-size: 13px; width: 10%;">&nbsp;</td>
+                    <td style="padding: 5px; border: none; width: 50%;" class="photo-cell">&nbsp;</td>
+                </tr>
+                <tr style="min-height: 70px; line-height: 1.2;">
+                    <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: none; font-size: 9px; width: 8%;">&nbsp;</td>
+                    <td style="padding: 8px 5px; vertical-align: middle; border: none; font-size: 11px; width: 32%; word-break: break-word;">&nbsp;</td>
+                    <td style="vertical-align: middle; border: none; font-size: 13px; width: 10%;">&nbsp;</td>
+                    <td style="padding: 5px; border: none; width: 50%;" class="photo-cell">&nbsp;</td>
+                </tr>
+                <tr style="min-height: 70px; line-height: 1.2;">
+                    <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: none; font-size: 9px; width: 8%;">&nbsp;</td>
+                    <td style="padding: 8px 5px; vertical-align: middle; border: none; font-size: 11px; width: 32%; word-break: break-word;">&nbsp;</td>
+                    <td style="vertical-align: middle; border: none; font-size: 13px; width: 10%;">&nbsp;</td>
+                    <td style="padding: 5px; border: none; width: 50%;" class="photo-cell">&nbsp;</td>
+                </tr>
+            {% elif forloop.counter|add:"2"|divisibleby:4 %}
+                <tr style="min-height: 70px; line-height: 1.2;">
+                    <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: none; font-size: 9px; width: 8%;">&nbsp;</td>
+                    <td style="padding: 8px 5px; vertical-align: middle; border: none; font-size: 11px; width: 32%; word-break: break-word;">&nbsp;</td>
+                    <td style="vertical-align: middle; border: none; font-size: 13px; width: 10%;">&nbsp;</td>
+                    <td style="padding: 5px; border: none; width: 50%;" class="photo-cell">&nbsp;</td>
+                </tr>
+                <tr style="min-height: 70px; line-height: 1.2;">
+                    <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: none; font-size: 9px; width: 8%;">&nbsp;</td>
+                    <td style="padding: 8px 5px; vertical-align: middle; border: none; font-size: 11px; width: 32%; word-break: break-word;">&nbsp;</td>
+                    <td style="vertical-align: middle; border: none; font-size: 13px; width: 10%;">&nbsp;</td>
+                    <td style="padding: 5px; border: none; width: 50%;" class="photo-cell">&nbsp;</td>
+                </tr>
+            {% elif forloop.counter|add:"1"|divisibleby:4 %}
+                <tr style="min-height: 70px; line-height: 1.2;">
+                    <td style="text-align: center; padding: 8px 2px; vertical-align: middle; border: none; font-size: 9px; width: 8%;">&nbsp;</td>
+                    <td style="padding: 8px 5px; vertical-align: middle; border: none; font-size: 11px; width: 32%; word-break: break-word;">&nbsp;</td>
+                    <td style="vertical-align: middle; border: none; font-size: 13px; width: 10%;">&nbsp;</td>
+                    <td style="padding: 5px; border: none; width: 50%;" class="photo-cell">&nbsp;</td>
+                </tr>
+            {% endif %}
+        {% endif %}
                         <tr>
                             <td colspan="3" style="border: 1px solid #000; padding: 0; margin: 0; vertical-align: top;">
                                 <table style="border-collapse: collapse; width: 100%; margin: 0; table-layout: fixed;">
